@@ -147,7 +147,12 @@ export default function HistoryPage() {
                     ) : (
                         <div className="history-list">
                             {history.map((item) => (
-                                <div key={item.id} className="card history-item">
+                                <div
+                                    key={item.id}
+                                    className="card history-item"
+                                    onClick={() => router.push(`/?q=${encodeURIComponent(item.query_text)}`)}
+                                    style={{ cursor: 'pointer' }}
+                                >
                                     <div style={{ flex: 1 }}>
                                         <p className="history-query">{item.query_text}</p>
                                         <p className="history-date">
@@ -157,7 +162,10 @@ export default function HistoryPage() {
                                     </div>
                                     <button
                                         className="btn btn-ghost"
-                                        onClick={() => handleDelete(item.id)}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDelete(item.id);
+                                        }}
                                         style={{ padding: 'var(--space-sm)' }}
                                     >
                                         <Trash2 size={16} />

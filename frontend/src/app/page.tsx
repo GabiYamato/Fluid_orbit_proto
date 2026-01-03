@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 import { Search, Home, History, Settings, LogOut, Star, ExternalLink, Clock, AlertCircle, Zap, Sparkles, ArrowUp, Square } from 'lucide-react';
 
@@ -44,6 +44,7 @@ interface ChatMessage {
 
 export default function HomePage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [query, setQuery] = useState('');
@@ -51,6 +52,7 @@ export default function HomePage() {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [abortController, setAbortController] = useState<AbortController | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const hasExecutedUrlQuery = useRef(false);
 
     useEffect(() => {
         const checkAuth = () => {
@@ -63,24 +65,30 @@ export default function HomePage() {
         return () => window.removeEventListener('focus', checkAuth);
     }, []);
 
+    // Handle query from URL (from history page)
+    useEffect(() => {
+        const urlQuery = searchParams.get('q');
+        if (urlQuery && !hasExecutedUrlQuery.current && !isLoading && isAuthenticated) {
+            hasExecutedUrlQuery.current = true;
+            // Clear URL param
+            router.replace('/', { scroll: false });
+            // Execute search
+            executeSearch(urlQuery);
+        }
+    }, [searchParams, isLoading, isAuthenticated]);
+
     useEffect(() => {
         // Scroll to bottom when new messages arrive
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
-    const handleSearch = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!query.trim() || isSearching) return;
-
-        if (!isAuthenticated) {
-            router.push('/login');
-            return;
-        }
+    const executeSearch = async (searchQuery: string) => {
+        if (!searchQuery.trim() || isSearching) return;
 
         const userMessage: ChatMessage = {
             id: Date.now().toString(),
             type: 'user',
-            content: query,
+            content: searchQuery,
         };
 
         const loadingMessage: ChatMessage = {
@@ -91,14 +99,14 @@ export default function HomePage() {
         };
 
         setMessages(prev => [...prev, userMessage, loadingMessage]);
-        setQuery(''); // Clear input immediately
+        setQuery('');
         setIsSearching(true);
 
         const controller = new AbortController();
         setAbortController(controller);
 
         try {
-            const data = await api.queryProducts(query);
+            const data = await api.queryProducts(searchQuery);
 
             const assistantMessage: ChatMessage = {
                 id: loadingMessage.id,
@@ -125,6 +133,18 @@ export default function HomePage() {
             setIsSearching(false);
             setAbortController(null);
         }
+    };
+
+    const handleSearch = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!query.trim() || isSearching) return;
+
+        if (!isAuthenticated) {
+            router.push('/login');
+            return;
+        }
+
+        executeSearch(query);
     };
 
     const handleStop = () => {
