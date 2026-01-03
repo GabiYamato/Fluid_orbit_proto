@@ -112,11 +112,11 @@ export default function HomePage() {
         if (!pickType) return null;
         switch (pickType) {
             case 'best':
-                return <span className="badge badge-success">🏆 Best Pick</span>;
+                return <span className="badge badge-success"><Star size={10} /> Best Pick</span>;
             case 'value':
-                return <span className="badge badge-accent">💎 Best Value</span>;
+                return <span className="badge badge-accent"><Sparkles size={10} /> Best Value</span>;
             case 'budget':
-                return <span className="badge badge-warning">💰 Budget Pick</span>;
+                return <span className="badge badge-warning"><Zap size={10} /> Budget Pick</span>;
             default:
                 return null;
         }
@@ -172,10 +172,10 @@ export default function HomePage() {
                 {/* Search Section */}
                 <section className="search-section">
                     <h1 className="search-title">
-                        Find Your <span>Perfect</span> Product
+                        Discover Your Next Favorite Product
                     </h1>
                     <p className="search-subtitle">
-                        AI-powered recommendations with transparent scoring. No BS. Just facts.
+                        AI-powered recommendations with transparent scoring and real data.
                     </p>
 
                     <form onSubmit={handleSearch}>
@@ -183,14 +183,14 @@ export default function HomePage() {
                             <input
                                 type="text"
                                 className="search-input"
-                                placeholder="e.g., best wireless earbuds under $100 for running"
+                                placeholder="Search for any product..."
                                 value={query}
                                 onChange={(e) => setQuery(e.target.value)}
                                 disabled={isSearching}
                             />
                             <button type="submit" className="btn btn-primary search-btn" disabled={isSearching}>
                                 {isSearching ? (
-                                    <div className="spinner" style={{ width: 20, height: 20 }} />
+                                    <div className="spinner" />
                                 ) : (
                                     <>
                                         <Search size={18} />
