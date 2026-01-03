@@ -1,0 +1,26 @@
+# ShopGPT - Dependencies & Build
+node_modules/
+.next/
+out/
+build/
+dist/
+__pycache__/
+*.py[cod]
+venv/
+*.egg-info/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.sqlite3
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.log
