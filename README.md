@@ -1,83 +1,76 @@
 # ShopGPT
 
-> **Decision Engine for Product Research** — An authenticated AI-powered product research web app that helps users choose between good options, not browse everything.
+> AI-Powered Product Research — No BS, Just Facts.
 
-## Quick Start
+A next-generation product recommendation engine that helps you make smarter shopping decisions with transparent scoring and real data.
+
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
-- Docker & Docker Compose
-- Node.js 18+ (for local frontend development)
-- Python 3.11+ (for local backend development)
+- Node.js 18+
+- Python 3.11+
 
-### 1. Clone and Setup Environment
-
-```bash
-cp .env.example .env
-# Edit .env with your API keys
-```
-
-### 2. Start with Docker
-
-```bash
-docker-compose up -d
-```
-
-This starts:
-- **PostgreSQL** (port 5432) - Metadata database
-- **Redis** (port 6379) - Caching & rate limiting
-- **Qdrant** (port 6333) - Vector database
-- **Backend** (port 8000) - FastAPI server
-- **Frontend** (port 3000) - Next.js app
-
-### 3. Access the App
-
-- Frontend: http://localhost:3000
-- API Docs: http://localhost:8000/docs
-- Qdrant Dashboard: http://localhost:6333/dashboard
-
-## Architecture
-
-```
-Frontend (Next.js) → API Gateway → FastAPI Backend
-                                        ├── Auth Service
-                                        ├── Query Service
-                                        ├── RAG Pipeline
-                                        └── Scoring Engine
-                                              ↓
-                                   ┌─────┬─────┬─────┐
-                                   │ PG  │Redis│Qdrant│
-                                   └─────┴─────┴─────┘
-```
-
-## Features
-
-- ✅ Google OAuth + Email authentication
-- ✅ Natural language product queries
-- ✅ RAG-based recommendations with transparent scoring
-- ✅ External API fallback for missing data
-- ✅ Query history per user
-- ✅ Rate limiting
-
-## Development
-
-### Backend (without Docker)
-
+### Backend
 ```bash
 cd backend
-python -m venv venv
+python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-uvicorn main:app --reload
+python -m uvicorn main:app --reload
 ```
 
-### Frontend (without Docker)
-
+### Frontend
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-## License
+**Open http://localhost:3000** 🎉
+
+---
+
+## 🏗️ Architecture
+
+```
+Shop_GPT/
+├── frontend/          # Next.js + TypeScript
+│   └── src/app/       # App Router pages
+├── backend/           # FastAPI + SQLite
+│   └── app/
+│       ├── routers/   # API endpoints
+│       ├── services/  # Business logic
+│       ├── models/    # SQLAlchemy models
+│       └── schemas/   # Pydantic schemas
+└── docker-compose.yml # Production setup
+```
+
+---
+
+## 🔑 API Keys (Optional)
+
+| Key | Purpose | Required? |
+|-----|---------|-----------|
+| `OPENAI_API_KEY` | AI-generated recommendations | No - uses fallback |
+| `RAPIDAPI_KEY` | Real product data | No - uses demo data |
+| `GOOGLE_CLIENT_ID` | OAuth sign-in | No - email auth works |
+
+**Demo mode works without any API keys!**
+
+---
+
+## 🎨 Design
+
+Neobrutalism-inspired UI with:
+- Thick black borders
+- Hard drop shadows
+- Bold typography
+- Pink (#E31B5B) accent color
+
+---
+
+## 📝 License
 
 MIT

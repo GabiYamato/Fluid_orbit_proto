@@ -171,9 +171,11 @@ export default function HomePage() {
             <main className="main-content">
                 {/* Search Section */}
                 <section className="search-section">
-                    <h1 className="search-title">Find Your Perfect Product</h1>
+                    <h1 className="search-title">
+                        Find Your <span>Perfect</span> Product
+                    </h1>
                     <p className="search-subtitle">
-                        AI-powered recommendations with transparent scoring. Ask anything about products.
+                        AI-powered recommendations with transparent scoring. No BS. Just facts.
                     </p>
 
                     <form onSubmit={handleSearch}>
