@@ -138,8 +138,8 @@ export default function HomePage() {
         <div className="app-layout">
             {/* Sidebar */}
             <aside className="sidebar">
-                <div className="sidebar-logo">
-                    <Sparkles size={18} />
+                <div className="sidebar-logo" style={{ background: 'none', padding: 0 }}>
+                    <img src="/fluidorbitlogo.jpg" alt="ShopGPT" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover' }} />
                 </div>
 
                 <nav className="sidebar-nav">

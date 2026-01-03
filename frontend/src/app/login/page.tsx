@@ -33,9 +33,7 @@ export default function LoginPage() {
             {/* Brand Side */}
             <div className="auth-brand">
                 <div className="auth-brand-logo">
-                    <div className="auth-brand-icon">
-                        <Sparkles size={20} />
-                    </div>
+                    <img src="/fluidorbitlogo.jpg" alt="ShopGPT" style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover' }} />
                     <span>ShopGPT</span>
                 </div>
             </div>
