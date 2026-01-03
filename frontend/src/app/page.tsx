@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
-import { Search, Home, History, Settings, LogOut, Star, ExternalLink, Clock, AlertCircle, Zap, Sparkles, ArrowUp, Plus } from 'lucide-react';
+import { Search, Home, History, Settings, LogOut, Star, ExternalLink, Clock, AlertCircle, Zap, Sparkles, ArrowUp, Square } from 'lucide-react';
 
 interface Product {
     id: string;
@@ -32,14 +32,14 @@ interface Recommendation {
     pick_type: string | null;
 }
 
-interface QueryResult {
-    query: string;
-    recommendations: Recommendation[];
-    summary: string;
-    data_source: string;
-    confidence_level: string;
-    disclaimer: string | null;
-    response_time_ms: number;
+interface ChatMessage {
+    id: string;
+    type: 'user' | 'assistant';
+    content: string;
+    recommendations?: Recommendation[];
+    data_source?: string;
+    response_time_ms?: number;
+    isLoading?: boolean;
 }
 
 export default function HomePage() {
@@ -48,43 +48,88 @@ export default function HomePage() {
     const [isLoading, setIsLoading] = useState(true);
     const [query, setQuery] = useState('');
     const [isSearching, setIsSearching] = useState(false);
-    const [result, setResult] = useState<QueryResult | null>(null);
-    const [error, setError] = useState<string | null>(null);
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [abortController, setAbortController] = useState<AbortController | null>(null);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    // Check auth on mount and whenever the window gets focus (returning from login)
     useEffect(() => {
         const checkAuth = () => {
             const authenticated = api.isAuthenticated();
             setIsAuthenticated(authenticated);
             setIsLoading(false);
         };
-
         checkAuth();
-
-        // Re-check when window regains focus (user returns from login page)
         window.addEventListener('focus', checkAuth);
         return () => window.removeEventListener('focus', checkAuth);
     }, []);
 
+    useEffect(() => {
+        // Scroll to bottom when new messages arrive
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
+
     const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!query.trim()) return;
+        if (!query.trim() || isSearching) return;
 
         if (!isAuthenticated) {
             router.push('/login');
             return;
         }
 
+        const userMessage: ChatMessage = {
+            id: Date.now().toString(),
+            type: 'user',
+            content: query,
+        };
+
+        const loadingMessage: ChatMessage = {
+            id: (Date.now() + 1).toString(),
+            type: 'assistant',
+            content: 'Searching for the best products...',
+            isLoading: true,
+        };
+
+        setMessages(prev => [...prev, userMessage, loadingMessage]);
+        setQuery(''); // Clear input immediately
         setIsSearching(true);
-        setError(null);
-        setResult(null);
+
+        const controller = new AbortController();
+        setAbortController(controller);
 
         try {
             const data = await api.queryProducts(query);
-            setResult(data);
+
+            const assistantMessage: ChatMessage = {
+                id: loadingMessage.id,
+                type: 'assistant',
+                content: data.summary,
+                recommendations: data.recommendations,
+                data_source: data.data_source,
+                response_time_ms: data.response_time_ms,
+            };
+
+            setMessages(prev => prev.map(m => m.id === loadingMessage.id ? assistantMessage : m));
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Something went wrong');
+            if (err instanceof Error && err.name === 'AbortError') {
+                setMessages(prev => prev.filter(m => m.id !== loadingMessage.id));
+            } else {
+                const errorMessage: ChatMessage = {
+                    id: loadingMessage.id,
+                    type: 'assistant',
+                    content: err instanceof Error ? err.message : 'Something went wrong',
+                };
+                setMessages(prev => prev.map(m => m.id === loadingMessage.id ? errorMessage : m));
+            }
         } finally {
+            setIsSearching(false);
+            setAbortController(null);
+        }
+    };
+
+    const handleStop = () => {
+        if (abortController) {
+            abortController.abort();
             setIsSearching(false);
         }
     };
@@ -92,7 +137,7 @@ export default function HomePage() {
     const handleLogout = async () => {
         await api.logout();
         setIsAuthenticated(false);
-        setResult(null);
+        setMessages([]);
     };
 
     const getSourceBadge = (source: string) => {
@@ -126,7 +171,7 @@ export default function HomePage() {
         return (
             <div className="app-layout">
                 <div className="main-wrapper">
-                    <div className="main-content">
+                    <div className="main-content" style={{ justifyContent: 'center' }}>
                         <div className="spinner" />
                     </div>
                 </div>
@@ -171,151 +216,102 @@ export default function HomePage() {
 
             {/* Main Content */}
             <div className="main-wrapper">
-                <main className="main-content">
-                    {/* Show Hero when no results */}
-                    {!result && !error && !isSearching && (
-                        <section className="hero-section fade-in">
-                            <h1 className="hero-greeting">
-                                Hello,
-                                {isAuthenticated ? null : (
-                                    <button className="add-name-btn" onClick={() => router.push('/signup')}>
-                                        <Plus size={16} />
-                                        Sign Up
-                                    </button>
-                                )}
-                            </h1>
+                <main className="chat-container">
+                    {/* Show Hero when no messages */}
+                    {messages.length === 0 && (
+                        <div className="hero-section fade-in">
+                            <h1 className="hero-greeting">Hello,</h1>
                             <p className="hero-tagline">Shop at the Speed of Thought.</p>
-                        </section>
-                    )}
-
-                    {/* Error Display */}
-                    {error && (
-                        <div className="response-summary fade-in" style={{ maxWidth: 600 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: 'var(--error)' }}>
-                                <AlertCircle size={20} />
-                                <span>{error}</span>
-                            </div>
                         </div>
                     )}
 
-                    {/* Results Section */}
-                    {result && (
-                        <section className="results-section fade-in">
-                            {/* Response Summary */}
-                            <div className="response-summary">
-                                <p className="summary-text">{result.summary}</p>
-                                {result.disclaimer && (
-                                    <p className="summary-disclaimer">
-                                        <AlertCircle size={14} />
-                                        {result.disclaimer}
-                                    </p>
-                                )}
-                            </div>
-
-                            {/* Results Header */}
-                            <div className="results-header">
-                                <h2 className="results-title">
-                                    Top {result.recommendations.length} Recommendations
-                                </h2>
-                                <div className="results-meta">
-                                    {getSourceBadge(result.data_source)}
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                        <Clock size={14} />
-                                        {result.response_time_ms}ms
-                                    </span>
+                    {/* Chat Messages */}
+                    {messages.length > 0 && (
+                        <div className="chat-messages">
+                            {messages.map((message) => (
+                                <div key={message.id} className={`chat-message ${message.type}`}>
+                                    {message.type === 'user' ? (
+                                        <div className="user-bubble">
+                                            {message.content}
+                                        </div>
+                                    ) : (
+                                        <div className="assistant-response">
+                                            {message.isLoading ? (
+                                                <div className="loading-indicator">
+                                                    <div className="spinner" />
+                                                    <span>{message.content}</span>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    {message.recommendations && message.recommendations.length > 0 ? (
+                                                        <>
+                                                            <div className="response-header">
+                                                                <p className="summary-text">{message.content}</p>
+                                                                <div className="results-meta">
+                                                                    {message.data_source && getSourceBadge(message.data_source)}
+                                                                    {message.response_time_ms && (
+                                                                        <span><Clock size={12} /> {message.response_time_ms}ms</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <div className="products-grid">
+                                                                {message.recommendations.map((rec) => (
+                                                                    <div key={rec.product.id} className="product-card-mini">
+                                                                        <img
+                                                                            src={rec.product.image_url || 'https://placehold.co/200x200?text=No+Image'}
+                                                                            alt={rec.product.title}
+                                                                            className="product-image-mini"
+                                                                        />
+                                                                        <div className="product-info">
+                                                                            <div className="product-header">
+                                                                                <span className="product-rank">{rec.rank}</span>
+                                                                                {getPickBadge(rec.pick_type)}
+                                                                            </div>
+                                                                            <h4 className="product-title-mini">{rec.product.title}</h4>
+                                                                            <div className="product-meta">
+                                                                                <span className="product-rating">
+                                                                                    <Star size={12} fill="currentColor" />
+                                                                                    {rec.product.rating?.toFixed(1) || 'N/A'}
+                                                                                </span>
+                                                                                <span className="product-price-mini">
+                                                                                    ${rec.product.price?.toFixed(2) || 'N/A'}
+                                                                                </span>
+                                                                            </div>
+                                                                            {rec.pros.length > 0 && (
+                                                                                <ul className="pros-list-mini">
+                                                                                    {rec.pros.slice(0, 2).map((pro, i) => (
+                                                                                        <li key={i}>{pro}</li>
+                                                                                    ))}
+                                                                                </ul>
+                                                                            )}
+                                                                            <a
+                                                                                href={rec.product.affiliate_url || '#'}
+                                                                                target="_blank"
+                                                                                rel="noopener noreferrer"
+                                                                                className="btn btn-primary btn-sm"
+                                                                            >
+                                                                                <ExternalLink size={12} />
+                                                                                View
+                                                                            </a>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </>
+                                                    ) : (
+                                                        <div className="error-message">
+                                                            <AlertCircle size={16} />
+                                                            {message.content}
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
-
-                            {/* Products List */}
-                            <div className="results-list">
-                                {result.recommendations.map((rec) => (
-                                    <div key={rec.product.id} className="card product-card">
-                                        <img
-                                            src={rec.product.image_url || 'https://placehold.co/400x400?text=No+Image'}
-                                            alt={rec.product.title}
-                                            className="product-image"
-                                        />
-
-                                        <div className="product-content">
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                                                <span className="product-rank">{rec.rank}</span>
-                                                {getPickBadge(rec.pick_type)}
-                                            </div>
-
-                                            <h3 className="product-title">{rec.product.title}</h3>
-
-                                            <div className="product-meta">
-                                                <span className="product-rating">
-                                                    <Star size={14} fill="currentColor" />
-                                                    {rec.product.rating?.toFixed(1) || 'N/A'}
-                                                </span>
-                                                <span>{rec.product.review_count?.toLocaleString() || 0} reviews</span>
-                                            </div>
-
-                                            {(rec.pros.length > 0 || rec.cons.length > 0) && (
-                                                <div className="product-pros-cons">
-                                                    {rec.pros.length > 0 && (
-                                                        <ul className="pros-cons-list pros">
-                                                            {rec.pros.map((pro, i) => (
-                                                                <li key={i}>{pro}</li>
-                                                            ))}
-                                                        </ul>
-                                                    )}
-                                                    {rec.cons.length > 0 && (
-                                                        <ul className="pros-cons-list cons">
-                                                            {rec.cons.map((con, i) => (
-                                                                <li key={i}>{con}</li>
-                                                            ))}
-                                                        </ul>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div className="product-sidebar">
-                                            <div className="product-price">
-                                                ${rec.product.price?.toFixed(2) || 'N/A'}
-                                            </div>
-                                            <div className="product-source">
-                                                {getSourceBadge(rec.product.source)}
-                                            </div>
-
-                                            <a
-                                                href={rec.product.affiliate_url || '#'}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="btn btn-primary"
-                                                style={{ width: '100%' }}
-                                            >
-                                                <ExternalLink size={14} />
-                                                View Deal
-                                            </a>
-
-                                            {rec.product.scores && (
-                                                <div className="product-scores">
-                                                    <div className="score-row">
-                                                        <span className="score-label">Price</span>
-                                                        <span className="score-value">{rec.product.scores.price_score}</span>
-                                                    </div>
-                                                    <div className="score-row">
-                                                        <span className="score-label">Rating</span>
-                                                        <span className="score-value">{rec.product.scores.rating_score}</span>
-                                                    </div>
-                                                    <div className="score-row">
-                                                        <span className="score-label">Reviews</span>
-                                                        <span className="score-value">{rec.product.scores.review_volume_score}</span>
-                                                    </div>
-                                                    <div className="score-row final-score">
-                                                        <span className="score-label">Overall</span>
-                                                        <span className="score-value">{rec.product.scores.final_score}</span>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
+                            ))}
+                            <div ref={messagesEndRef} />
+                        </div>
                     )}
                 </main>
 
@@ -331,13 +327,15 @@ export default function HomePage() {
                                 onChange={(e) => setQuery(e.target.value)}
                                 disabled={isSearching}
                             />
-                            <button type="submit" className="search-btn" disabled={isSearching}>
-                                {isSearching ? (
-                                    <div className="spinner" />
-                                ) : (
+                            {isSearching ? (
+                                <button type="button" className="search-btn stop-btn" onClick={handleStop}>
+                                    <Square size={16} fill="currentColor" />
+                                </button>
+                            ) : (
+                                <button type="submit" className="search-btn" disabled={!query.trim()}>
                                     <ArrowUp size={20} />
-                                )}
-                            </button>
+                                </button>
+                            )}
                         </div>
                     </form>
                 </div>

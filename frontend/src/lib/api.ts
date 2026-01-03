@@ -28,7 +28,8 @@ class ApiClient {
 
     private async request<T>(
         endpoint: string,
-        options: RequestInit = {}
+        options: RequestInit = {},
+        retries: number = 2
     ): Promise<T> {
         const headers: HeadersInit = {
             'Content-Type': 'application/json',
@@ -40,21 +41,39 @@ class ApiClient {
             (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
         }
 
-        const response = await fetch(`${API_URL}${endpoint}`, {
-            ...options,
-            headers,
-            credentials: 'include',
-        });
+        let lastError: Error | null = null;
 
-        if (!response.ok) {
-            const error: ApiError = await response.json().catch(() => ({ detail: 'Request failed' }));
-            const message = typeof error.detail === 'string'
-                ? error.detail
-                : error.detail?.message || 'Request failed';
-            throw new Error(message);
+        for (let attempt = 0; attempt <= retries; attempt++) {
+            try {
+                const response = await fetch(`${API_URL}${endpoint}`, {
+                    ...options,
+                    headers,
+                    credentials: 'include',
+                });
+
+                if (!response.ok) {
+                    const error: ApiError = await response.json().catch(() => ({ detail: 'Request failed' }));
+                    const message = typeof error.detail === 'string'
+                        ? error.detail
+                        : error.detail?.message || 'Request failed';
+                    throw new Error(message);
+                }
+
+                return response.json();
+            } catch (err) {
+                lastError = err instanceof Error ? err : new Error('Network error');
+
+                // Only retry on network errors (Failed to fetch), not HTTP errors
+                if (lastError.message !== 'Failed to fetch' || attempt === retries) {
+                    throw lastError;
+                }
+
+                // Wait a bit before retrying
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
         }
 
-        return response.json();
+        throw lastError || new Error('Request failed');
     }
 
     // Auth endpoints
