@@ -177,6 +177,101 @@ class ApiClient {
     async clearHistory() {
         return this.request('/history', { method: 'DELETE' });
     }
+
+    async streamQuery(
+        query: string,
+        history: { role: string; content: string }[] = [],
+        maxResults: number = 5,
+        offset: number = 0,
+        callbacks: {
+            onProducts: (products: any[]) => void;
+            onToken: (text: string) => void;
+            onStatus?: (status: string) => void;
+            onScrapedCount?: (count: number) => void;
+            onDone: () => void;
+            onError: (err: Error) => void;
+        }
+    ) {
+        try {
+            const token = this.getToken();
+            const headers: HeadersInit = {
+                'Content-Type': 'application/json',
+            };
+            if (token) {
+                (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
+            }
+
+            const response = await fetch(`${API_URL}/query/stream`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ query, history, max_results: maxResults, offset }),
+            });
+
+            if (!response.ok) throw new Error('Stream request failed');
+            if (!response.body) throw new Error('No response body');
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value, { stream: true });
+                buffer += chunk;
+
+                // Process lines properly (SSE format)
+                const lines = buffer.split('\n\n');
+                buffer = lines.pop() || ''; // Keep incomplete part
+
+                for (const line of lines) {
+                    if (line.trim() === '') continue;
+
+                    const eventMatch = line.match(/^event: (.*)$/m);
+                    const dataMatch = line.match(/^data: (.*)$/m);
+
+                    if (eventMatch && dataMatch) {
+                        const event = eventMatch[1].trim();
+                        const dataStr = dataMatch[1].trim();
+
+                        if (event === 'done') {
+                            callbacks.onDone();
+                            return;
+                        }
+
+                        if (event === 'products') {
+                            try {
+                                const products = JSON.parse(dataStr);
+                                callbacks.onProducts(products);
+                            } catch (e) {
+                                console.error('Error parsing products:', e);
+                            }
+                        } else if (event === 'status') {
+                            if (callbacks.onStatus) {
+                                callbacks.onStatus(dataStr);
+                            }
+                        } else if (event === 'scraped_count') {
+                            if (callbacks.onScrapedCount) {
+                                callbacks.onScrapedCount(parseInt(dataStr, 10));
+                            }
+                        } else if (event === 'token') {
+                            try {
+                                const tokenData = JSON.parse(dataStr);
+                                if (tokenData.text) {
+                                    callbacks.onToken(tokenData.text);
+                                }
+                            } catch (e) {
+                                console.error('Error parsing token:', e);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (err) {
+            callbacks.onError(err instanceof Error ? err : new Error('Streaming error'));
+        }
+    }
 }
 
 export const api = new ApiClient();
