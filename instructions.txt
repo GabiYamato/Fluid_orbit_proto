@@ -1,0 +1,141 @@
+# ShopGPT Setup Instructions
+
+## 1. API Keys & Cloud Setup (Read First)
+
+Before running the application, you need to configure the necessary API keys and Cloud services.
+
+### A. Google Cloud (OAuth 2.0 for Login)
+1. Go to the **[Google Cloud Console](https://console.cloud.google.com/)**.
+2. Create a new project (e.g., "ShopGPT-Local").
+3. Navigate to **APIs & Services > OAuth consent screen**.
+   - Select **External**.
+   - Fill in the required fields (App Name, Support Email).
+   - Add scopes: `.../auth/userinfo.email`, `.../auth/userinfo.profile`, `openid`.
+   - Add your email as a Test User.
+4. Navigate to **Credentials > Create Credentials > OAuth client ID**.
+   - Application type: **Web application**.
+   - **Authorized JavaScript origins**:
+     - `http://localhost:3000`
+     - `http://localhost:8000`
+   - **Authorized redirect URIs**:
+     - `http://localhost:8000/auth/google/callback` (Backend Callback)
+     - `http://localhost:3000/auth/callback` (Frontend Callback)
+5. Copy the **Client ID** and **Client Secret**.
+6. Paste them into your `.env` file:
+   ```env
+   GOOGLE_CLIENT_ID=your_client_id_here
+   GOOGLE_CLIENT_SECRET=your_client_secret_here
+   ```
+
+### B. Gemini API (Optional, for Cloud LLM)
+1. Go to **[Google AI Studio](https://aistudio.google.com/app/apikey)**.
+2. Click **Create API key**.
+3. Copy the key to `.env`:
+   ```env
+   GEMINI_API_KEY=your_gemini_key
+   ```
+
+### C. OpenAI API (Optional, for Cloud LLM)
+1. Go to **[OpenAI Platform](https://platform.openai.com/api-keys)**.
+2. Create a new secret key.
+3. Copy the key to `.env`:
+   ```env
+   OPENAI_API_KEY=your_openai_key
+   ```
+
+---
+
+## 2. Quick Start (Running Locally)
+
+### Prerequisites
+- **Python** (3.9+)
+- **Node.js** (18+)
+- **Redis** (Required)
+- **Ollama** (Required for Local LLM)
+
+### Backend Setup
+1. Navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
+2. Create and activate a virtual environment:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # Windows: venv\Scripts\activate
+   ```
+3. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. Configure Environment:
+   ```bash
+   # Go back to root
+   cd ..
+   cp .env.example .env
+   # EDIT .env with your API keys from Section 1
+   ```
+
+5. Setup Local Models (Ollama):
+   Ensure Ollama is running (`ollama serve`), then run the setup script:
+   ```bash
+   cd backend
+   chmod +x scripts/setup_local_model.sh
+   ./scripts/setup_local_model.sh
+   ```
+   *Note: This downloads `llama3.2:3b` and `nomic-embed-text`.*
+
+6. Start Redis:
+   ```bash
+   redis-server
+   ```
+
+7. Start Backend:
+   In the backend terminal (with venv activated):
+   ```bash
+   python -m uvicorn main:app --reload
+   ```
+   Server runs at `http://localhost:8000`.
+
+### Frontend Setup
+1. Open a new terminal and navigate to frontend:
+   ```bash
+   cd frontend
+   ```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Run Development Server:
+   ```bash
+   npm run dev
+   ```
+   App runs at `http://localhost:3000`.
+
+---
+
+## 3. Switching Between Local & Cloud Models
+
+### To use Local LLM (Free, Private, Default)
+In `.env`:
+```env
+USE_LOCAL_LLM=True
+OLLAMA_BASE_URL=http://localhost:11434/v1
+```
+
+### To use Cloud LLM (Higher Quality, Cost associated)
+In `.env`:
+1. Set `USE_LOCAL_LLM=False`
+2. Ensure `GEMINI_API_KEY` or `OPENAI_API_KEY` is set.
+   *The system will prioritize Gemini if both are present, or check the code logic.*
+
+---
+
+## 4. Architecture & Troubleshooting
+- **Backend Port**: 8000
+- **Frontend Port**: 3000
+- **Redis Port**: 6379
+- **Ollama Port**: 11434
+
+**Common Issues:**
+- `Connection refused`: Check Redis and Ollama status.
+- `Authentication Error`: Check `GOOGLE_CLIENT_ID` in `.env` and authorized redirect URIs in Google Console.
