@@ -4,10 +4,16 @@ from datetime import datetime
 from typing import Optional, List
 
 
+class HistoryItem(BaseModel):
+    role: str
+    content: str
+
 class QueryRequest(BaseModel):
     """Schema for product query request."""
     query: str
     max_results: int = 5
+    offset: int = 0
+    history: List[HistoryItem] = []
     
     class Config:
         json_schema_extra = {
