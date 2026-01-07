@@ -127,6 +127,117 @@ async def login(user_data: UserLogin, db: AsyncSession = Depends(get_db)):
     return response
 
 
+@router.get("/google/login")
+async def google_login():
+    """Initiate Google OAuth flow."""
+    if not settings.google_client_id:
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="Google OAuth not configured"
+        )
+    
+    redirect_uri = "http://localhost:8000/auth/google/callback"
+    google_auth_url = (
+        f"https://accounts.google.com/o/oauth2/v2/auth?"
+        f"client_id={settings.google_client_id}&"
+        f"redirect_uri={redirect_uri}&"
+        f"response_type=code&"
+        f"scope=openid%20email%20profile&"
+        f"access_type=offline"
+    )
+    
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url=google_auth_url)
+
+
+@router.get("/google/callback")
+async def google_callback(code: str, db: AsyncSession = Depends(get_db)):
+    """Handle Google OAuth callback."""
+    if not settings.google_client_id or not settings.google_client_secret:
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="Google OAuth not configured"
+        )
+    
+    # Exchange code for tokens
+    async with httpx.AsyncClient() as client:
+        token_response = await client.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "code": code,
+                "client_id": settings.google_client_id,
+                "client_secret": settings.google_client_secret,
+                "redirect_uri": "http://localhost:8000/auth/google/callback",
+                "grant_type": "authorization_code",
+            },
+        )
+        
+        if token_response.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to exchange code for tokens"
+            )
+        
+        tokens = token_response.json()
+        
+        # Get user info
+        userinfo_response = await client.get(
+            "https://www.googleapis.com/oauth2/v2/userinfo",
+            headers={"Authorization": f"Bearer {tokens['access_token']}"},
+        )
+        
+        if userinfo_response.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to get user info"
+            )
+        
+        userinfo = userinfo_response.json()
+    
+    # Find or create user
+    result = await db.execute(select(User).where(User.google_id == userinfo["id"]))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        # Check if email already exists
+        result = await db.execute(select(User).where(User.email == userinfo["email"]))
+        existing_user = result.scalar_one_or_none()
+        
+        if existing_user:
+            # Link Google account to existing user
+            existing_user.google_id = userinfo["id"]
+            user = existing_user
+        else:
+            # Create new user
+            user = User(
+                email=userinfo["email"],
+                google_id=userinfo["id"],
+            )
+            db.add(user)
+        
+        await db.commit()
+        await db.refresh(user)
+    
+    # Generate tokens
+    access_token = create_access_token(user.id)
+    refresh_token_value = create_refresh_token(user.id)
+    
+    # Redirect to frontend with tokens
+    from fastapi.responses import RedirectResponse
+    response = RedirectResponse(url=f"http://localhost:3000/?access_token={access_token}")
+    
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token_value,
+        httponly=True,
+        secure=False,  # Set to True in production with HTTPS
+        samesite="lax",
+        max_age=settings.refresh_token_expire_days * 24 * 60 * 60,
+    )
+    
+    return response
+
+
 @router.post("/google", response_model=TokenResponse)
 async def google_auth(auth_data: GoogleAuthRequest, db: AsyncSession = Depends(get_db)):
     """Authenticate with Google OAuth."""
