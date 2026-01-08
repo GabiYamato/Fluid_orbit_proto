@@ -1,4 +1,4 @@
-# ShopGPT
+# FLUID ORBIT
 
 > AI-Powered Product Research — No BS, Just Facts.
 
@@ -6,7 +6,10 @@ A next-generation product recommendation engine that helps you make smarter shop
 
 ---
 
-## 🚀 Quick Start
+# Please look at instructions.txt on instructions to setup the API KEYS required
+
+
+##  Quick Start
 
 ### Prerequisites
 - Node.js 18+
@@ -28,7 +31,7 @@ npm install
 npm run dev
 ```
 
-**Open http://localhost:3000** 🎉
+**Open http://localhost:3000** 
 
 ---
 
