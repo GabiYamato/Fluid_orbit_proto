@@ -14,7 +14,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U shopgpt"]
+      test: [ "CMD-SHELL", "pg_isready -U shopgpt" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -28,7 +28,7 @@ services:
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -61,6 +61,9 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      USE_LOCAL_LLM: ${USE_LOCAL_LLM:-True}
+      OLLAMA_BASE_URL: http://ollama:11434/v1
     depends_on:
       postgres:
         condition: service_healthy
@@ -68,6 +71,9 @@ services:
         condition: service_healthy
       qdrant:
         condition: service_started
+      ollama:
+        condition: service_started
+
     volumes:
       - ./backend:/app
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
@@ -89,7 +95,18 @@ services:
       - /app/node_modules
     command: npm run dev
 
+  # Local LLM Service
+  ollama:
+    image: ollama/ollama:latest
+    container_name: shopgpt-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    tty: true
+
 volumes:
   postgres_data:
   redis_data:
   qdrant_data:
+  ollama_data:
