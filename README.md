@@ -4,9 +4,23 @@
 
 A next-generation product recommendation engine that helps you make smarter shopping decisions with transparent scoring and real data.
 
+<div align="center">
+  <img src="images/login.png" alt="Login" />
+  <br/><br/>
+  <img src="images/home.png" alt="Home" />
+  <br/><br/>
+  <img src="images/product-research.png" alt="Product Research" />
+  <br/><br/>
+  <img src="images/history.png" alt="History" />
+  <br/><br/>
+  <img src="images/settings.png" alt="Settings" />
+  <br/><br/>
+  <img src="images/settings-small.png" alt="Settings Mobile" width="400" />
+</div>
+
 ---
 
-# Please look at instructions.txt on instructions to setup the API KEYS required
+## Please look at instructions.txt on instructions to setup the API KEYS required
 
 
 ##  Quick Start
