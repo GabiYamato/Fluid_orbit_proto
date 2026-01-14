@@ -116,8 +116,11 @@ Be concise but informative. If information is missing, make reasonable inference
     def _parse_llm_chunks(
         self, llm_result: Dict[str, Any], product: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
-        """Parse LLM response into chunk objects."""
+        """Parse LLM response into chunk objects, ensuring product name is in every chunk."""
         product_id = product.get("id", "unknown")
+        product_title = product.get("title", "Unknown Product")
+        product_price = product.get("price", 0)
+        product_source = product.get("source", "unknown")
         chunks = []
 
         chunk_types = ["pros", "cons", "specs", "use_cases", "summary"]
@@ -131,55 +134,63 @@ Be concise but informative. If information is missing, make reasonable inference
                 content_text = str(content)
 
             if content_text:
+                # Prepend product name to content for self-contained chunks
+                full_content = f"[{product_title}] {content_text}"
+                
                 chunks.append({
                     "chunk_type": chunk_type,
-                    "content": content_text,
+                    "content": full_content,
                     "product_id": product_id,
-                    "product_title": product.get("title", ""),
-                    "product_price": product.get("price", 0),
+                    "product_title": product_title,
+                    "product_price": product_price,
+                    "source": product_source,
                 })
 
         return chunks
 
     def _create_basic_chunks(self, product: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Create basic chunks without LLM (fallback)."""
+        """Create basic chunks without LLM (fallback), ensuring product name in every chunk."""
         product_id = product.get("id", "unknown")
-        title = product.get("title", "")
+        title = product.get("title", "Unknown Product")
         description = product.get("description", "")
         price = product.get("price", 0)
         rating = product.get("rating", 0)
+        source = product.get("source", "unknown")
 
         chunks = []
 
-        # Summary chunk
-        summary = f"{title}. Price: ${price}. Rating: {rating}/5."
+        # Summary chunk - includes product name
+        summary_content = f"[{title}] Price: ${price}. Rating: {rating}/5."
         if description:
-            summary += f" {description[:200]}"
+            summary_content += f" {description[:200]}"
         
         chunks.append({
             "chunk_type": "summary",
-            "content": summary,
+            "content": summary_content,
             "product_id": product_id,
             "product_title": title,
             "product_price": price,
+            "source": source,
         })
 
-        # Basic pros/cons based on rating
+        # Basic pros/cons based on rating - also includes product name
         if rating >= 4.0:
             chunks.append({
                 "chunk_type": "pros",
-                "content": f"Highly rated product ({rating}/5 stars) | Good customer satisfaction",
+                "content": f"[{title}] Highly rated product ({rating}/5 stars) | Good customer satisfaction",
                 "product_id": product_id,
                 "product_title": title,
                 "product_price": price,
+                "source": source,
             })
         elif rating < 3.5 and rating > 0:
             chunks.append({
                 "chunk_type": "cons",
-                "content": f"Mixed reviews ({rating}/5 stars) | Consider alternatives",
+                "content": f"[{title}] Mixed reviews ({rating}/5 stars) | Consider alternatives",
                 "product_id": product_id,
                 "product_title": title,
                 "product_price": price,
+                "source": source,
             })
 
         return chunks
