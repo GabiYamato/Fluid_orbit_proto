@@ -38,11 +38,6 @@ class ChatSessionsResponse(BaseModel):
     total: int
 
 
-# In-memory storage for chat sessions (per user)
-# In production, this would be stored in the database
-_chat_sessions: dict = {}  # user_id -> List[ChatSession]
-
-
 @router.get("", response_model=QueryHistoryResponse)
 async def get_query_history(
     page: int = Query(1, ge=1),
@@ -120,15 +115,33 @@ async def clear_query_history(
     return {"message": "Query history cleared"}
 
 
-# ============== Chat Sessions Endpoints ==============
+# ============== Chat Sessions Endpoints (Database Persisted) ==============
 
 @router.get("/sessions", response_model=ChatSessionsResponse)
 async def get_chat_sessions(
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Get all chat sessions for the current user."""
-    user_id = str(current_user.id)
-    sessions = _chat_sessions.get(user_id, [])
+    """Get all chat sessions for the current user (persisted in DB)."""
+    from app.models.chat_session import ChatSession as ChatSessionModel
+    
+    result = await db.execute(
+        select(ChatSessionModel)
+        .where(ChatSessionModel.user_id == str(current_user.id))
+        .order_by(desc(ChatSessionModel.updated_at))
+        .limit(10)
+    )
+    db_sessions = result.scalars().all()
+    
+    # Convert DB models to response format
+    sessions = []
+    for s in db_sessions:
+        sessions.append(ChatSession(
+            id=s.id,
+            timestamp=s.created_at.isoformat() if s.created_at else "",
+            messages=[ChatMessage(**m) for m in (s.messages or [])],
+            preview=s.preview or "",
+        ))
     
     return ChatSessionsResponse(
         sessions=sessions,
@@ -139,29 +152,40 @@ async def get_chat_sessions(
 @router.post("/sessions")
 async def save_chat_session(
     request: SaveChatSessionRequest,
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Save a chat session for the current user."""
+    """Save a chat session for the current user (persisted in DB)."""
+    from app.models.chat_session import ChatSession as ChatSessionModel
+    
     user_id = str(current_user.id)
     
-    if user_id not in _chat_sessions:
-        _chat_sessions[user_id] = []
+    # Check if session exists
+    result = await db.execute(
+        select(ChatSessionModel).where(
+            ChatSessionModel.id == request.session.id,
+            ChatSessionModel.user_id == user_id,
+        )
+    )
+    existing = result.scalar_one_or_none()
     
-    # Check if session already exists (update it)
-    existing_idx = None
-    for idx, session in enumerate(_chat_sessions[user_id]):
-        if session.id == request.session.id:
-            existing_idx = idx
-            break
+    messages_data = [m.model_dump() for m in request.session.messages]
     
-    if existing_idx is not None:
-        _chat_sessions[user_id][existing_idx] = request.session
+    if existing:
+        # Update existing session
+        existing.messages = messages_data
+        existing.preview = request.session.preview
     else:
-        # Add new session at the beginning
-        _chat_sessions[user_id].insert(0, request.session)
+        # Create new session
+        new_session = ChatSessionModel(
+            id=request.session.id,
+            user_id=user_id,
+            messages=messages_data,
+            preview=request.session.preview,
+        )
+        db.add(new_session)
     
-    # Keep only last 10 sessions
-    _chat_sessions[user_id] = _chat_sessions[user_id][:10]
+    await db.commit()
     
     return {"message": "Chat session saved", "session_id": request.session.id}
 
@@ -169,31 +193,48 @@ async def save_chat_session(
 @router.delete("/sessions/{session_id}")
 async def delete_chat_session(
     session_id: str,
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Delete a chat session."""
+    from app.models.chat_session import ChatSession as ChatSessionModel
+    
     user_id = str(current_user.id)
     
-    if user_id not in _chat_sessions:
+    result = await db.execute(
+        select(ChatSessionModel).where(
+            ChatSessionModel.id == session_id,
+            ChatSessionModel.user_id == user_id,
+        )
+    )
+    session = result.scalar_one_or_none()
+    
+    if not session:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Session not found"
         )
     
-    _chat_sessions[user_id] = [
-        s for s in _chat_sessions[user_id] if s.id != session_id
-    ]
+    await db.delete(session)
+    await db.commit()
     
     return {"message": "Chat session deleted"}
 
 
 @router.delete("/sessions")
 async def clear_chat_sessions(
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Clear all chat sessions for the current user."""
+    from app.models.chat_session import ChatSession as ChatSessionModel
+    
     user_id = str(current_user.id)
-    _chat_sessions[user_id] = []
+    
+    await db.execute(
+        delete(ChatSessionModel).where(ChatSessionModel.user_id == user_id)
+    )
+    await db.commit()
     
     return {"message": "All chat sessions cleared"}
 
