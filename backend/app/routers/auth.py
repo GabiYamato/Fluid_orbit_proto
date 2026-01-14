@@ -401,3 +401,86 @@ async def get_current_user_info(
 ):
     """Get current user information."""
     return current_user
+
+
+# ============================================================================
+# OTP Endpoints (Ported from old Next.js implementation)
+# ============================================================================
+
+from pydantic import BaseModel, EmailStr
+
+
+class OTPSendRequest(BaseModel):
+    """Request body for sending OTP."""
+    email: EmailStr
+    username: Optional[str] = "User"
+
+
+class OTPVerifyRequest(BaseModel):
+    """Request body for verifying OTP."""
+    email: EmailStr
+    otp: str
+    skip_delete: Optional[bool] = False
+
+
+class OTPResponse(BaseModel):
+    """Response for OTP operations."""
+    success: bool
+    message: str
+
+
+@router.post("/otp/send", response_model=OTPResponse)
+async def send_otp(request: OTPSendRequest):
+    """
+    Send OTP to email for verification.
+    
+    Rate limited: minimum 1 minute between requests.
+    OTP expires after 10 minutes.
+    """
+    from app.services.otp_service import otp_service
+    
+    result = await otp_service.send_otp(
+        email=request.email,
+        username=request.username or "User"
+    )
+    
+    if not result["success"]:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS
+            if "wait" in result["message"].lower()
+            else status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result["message"]
+        )
+    
+    return OTPResponse(**result)
+
+
+@router.post("/otp/verify", response_model=OTPResponse)
+async def verify_otp(request: OTPVerifyRequest):
+    """
+    Verify OTP code.
+    
+    Maximum 5 attempts allowed.
+    """
+    from app.services.otp_service import otp_service
+    
+    result = await otp_service.verify_otp(
+        email=request.email,
+        otp=request.otp,
+        skip_delete=request.skip_delete or False
+    )
+    
+    if not result["success"]:
+        # Determine appropriate status code
+        if "expired" in result["message"].lower():
+            status_code = status.HTTP_410_GONE
+        elif "not found" in result["message"].lower():
+            status_code = status.HTTP_404_NOT_FOUND
+        elif "too many" in result["message"].lower():
+            status_code = status.HTTP_429_TOO_MANY_REQUESTS
+        else:
+            status_code = status.HTTP_400_BAD_REQUEST
+        
+        raise HTTPException(status_code=status_code, detail=result["message"])
+    
+    return OTPResponse(**result)

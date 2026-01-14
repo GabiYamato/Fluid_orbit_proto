@@ -16,8 +16,15 @@ async def lifespan(app: FastAPI):
     print("🚀 Starting ShopGPT Backend...")
     await init_db()
     print("✅ Database initialized")
+    
+    # Start scheduler for periodic scraping
+    from app.utils.scheduler import setup_scheduler, shutdown_scheduler
+    setup_scheduler(run_on_start=True)  # Scrapes on startup
+    
     yield
+    
     # Shutdown
+    shutdown_scheduler()
     print("👋 Shutting down ShopGPT Backend...")
 
 

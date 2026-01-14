@@ -30,6 +30,18 @@ class Settings(BaseSettings):
     rapidapi_key: Optional[str] = None
     serpapi_key: Optional[str] = None
     
+    # Jina AI (Embeddings)
+    jina_api_key: Optional[str] = None
+    
+    # Email (OTP)
+    mail_username: Optional[str] = None
+    mail_password: Optional[str] = None
+    mail_from: Optional[str] = None
+    mail_server: str = "smtp.gmail.com"
+    mail_port: int = 587
+    mail_starttls: bool = True
+    mail_ssl_tls: bool = False
+    
     # Local LLM (Ollama)
     ollama_base_url: str = "http://localhost:11434/v1"
     use_local_llm: bool = True
