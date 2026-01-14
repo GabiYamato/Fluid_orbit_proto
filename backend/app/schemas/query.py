@@ -32,6 +32,8 @@ class ParsedIntent(BaseModel):
     features: List[str] = []
     brand_preferences: List[str] = []
     use_case: Optional[str] = None
+    # Query type for retrieval strategy selection
+    query_type: Optional[str] = None  # best_product, deep_dive, multiple_listing, spec_lookup, review_based, follow_up
 
 
 class QueryResponse(BaseModel):

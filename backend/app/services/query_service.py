@@ -50,6 +50,9 @@ class QueryService:
         # Extract use case
         use_case = self._extract_use_case(query_lower)
         
+        # Classify query type
+        query_type = self._classify_query_type(query_lower)
+        
         return ParsedIntent(
             category=category,
             budget_min=budget_min,
@@ -57,6 +60,7 @@ class QueryService:
             features=features,
             brand_preferences=brands,
             use_case=use_case,
+            query_type=query_type,
         )
     
     def _extract_category(self, query: str) -> Optional[str]:
@@ -145,6 +149,50 @@ class QueryService:
                     return use_case
         
         return None
+    
+    def _classify_query_type(self, query: str) -> str:
+        """
+        Classify the query type for retrieval strategy selection.
+        
+        Types:
+        - best_product: User wants the best/top recommendation
+        - deep_dive: User wants detailed info about a specific product
+        - multiple_listing: User wants to see multiple options
+        - spec_lookup: User wants specific specs/features
+        - review_based: User wants review/opinion information
+        - general: Default for unclassified queries
+        """
+        # Best product patterns
+        best_patterns = ["best", "top", "recommend", "should i buy", "which one", "what's the best", "most popular"]
+        for pattern in best_patterns:
+            if pattern in query:
+                return "best_product"
+        
+        # Deep dive patterns (specific product mentions)
+        deep_dive_patterns = ["tell me about", "details on", "more about", "info on", "information about", "how is the"]
+        for pattern in deep_dive_patterns:
+            if pattern in query:
+                return "deep_dive"
+        
+        # Multiple listing patterns
+        listing_patterns = ["show me", "list", "all", "options", "alternatives", "compare", "vs", "versus"]
+        for pattern in listing_patterns:
+            if pattern in query:
+                return "multiple_listing"
+        
+        # Spec lookup patterns
+        spec_patterns = ["battery life", "specs", "specifications", "how long", "how much ram", "screen size", "weight", "dimensions"]
+        for pattern in spec_patterns:
+            if pattern in query:
+                return "spec_lookup"
+        
+        # Review-based patterns
+        review_patterns = ["reviews", "what do people say", "opinions", "feedback", "worth it", "pros and cons", "complaints"]
+        for pattern in review_patterns:
+            if pattern in query:
+                return "review_based"
+        
+        return "general"
     
     async def increment_demand(self, category: str):
         """Increment demand counter for a category."""
