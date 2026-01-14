@@ -1,21 +1,36 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+import logging
 
 from app.config import get_settings
 from app.database import init_db
 from app.routers import auth_router, query_router, history_router
+from app.utils.logging_config import setup_logging
 
 settings = get_settings()
+
+# Initialize logging before anything else
+setup_logging(log_level="INFO", log_dir="./logs")
+logger = logging.getLogger("main")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup and shutdown."""
     # Startup
-    print("🚀 Starting ShopGPT Backend...")
+    logger.info("🚀 Starting ShopGPT Backend...")
+    
+    # Pre-download/load embedding model
+    try:
+        from app.services.jina_embedding_service import JinaEmbeddingService
+        embedder = JinaEmbeddingService()
+        await embedder.ensure_model_loaded()
+    except Exception as e:
+        logger.warning(f"⚠️ Could not pre-load Jina model: {e}")
+
     await init_db()
-    print("✅ Database initialized")
+    logger.info("✅ Database initialized")
     
     # Start scheduler for periodic scraping
     from app.utils.scheduler import setup_scheduler, shutdown_scheduler
@@ -25,7 +40,7 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     shutdown_scheduler()
-    print("👋 Shutting down ShopGPT Backend...")
+    logger.info("👋 Shutting down ShopGPT Backend...")
 
 
 app = FastAPI(
