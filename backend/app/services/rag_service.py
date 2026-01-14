@@ -4,14 +4,28 @@ from qdrant_client import QdrantClient
 from qdrant_client.http import models as qdrant_models
 import openai
 import json
+import logging
 
 from app.config import get_settings
 from app.schemas.query import ParsedIntent
 from app.services.scoring_service import ScoringService
 from app.services.scraping_service import ScrapingService
 from app.services.external_api_service import ExternalAPIService
+from app.services.jina_embedding_service import JinaEmbeddingService
+from app.services.chunking_service import ChunkingService
 
 settings = get_settings()
+
+# Configure RAG logger
+logger = logging.getLogger("rag_service")
+logger.setLevel(logging.INFO)
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter(
+        "%(asctime)s | %(levelname)-8s | RAG | %(message)s",
+        datefmt="%H:%M:%S"
+    ))
+    logger.addHandler(handler)
 
 class RAGService:
     """RAG (Retrieval-Augmented Generation) Service for product recommendations."""
@@ -26,6 +40,8 @@ class RAGService:
         self.using_scraper = True
         self.scraping_service = ScrapingService()
         self.external_api_service = ExternalAPIService() # Re-enabled for fallback
+        self.jina_embedder = JinaEmbeddingService()  # Jina V3 embeddings
+        self.chunking_service = ChunkingService()  # Semantic chunking
         
         if settings.qdrant_path:
             try:
@@ -129,12 +145,22 @@ Query:"""
         Search for products (Vector DB + External API Fallback + Scoring).
         Returns raw product list and metadata.
         """
+        logger.info("=" * 50)
+        logger.info(f"🔍 SEARCH REQUEST")
+        logger.info(f"   Query: '{query}'")
+        logger.info(f"   Category: {parsed_intent.category}")
+        logger.info(f"   Budget: ${parsed_intent.budget_min or 0} - ${parsed_intent.budget_max or '∞'}")
+        logger.info(f"   Features: {parsed_intent.features}")
+        logger.info(f"   Offset: {offset}, Max: {max_results}")
+        
         total_found = 0
         # Try vector DB retrieval
         try:
+            logger.info("📊 Searching vector database (Qdrant)...")
             vector_results = await self._search_vector_db(query, parsed_intent, limit=max_results, offset=offset)
+            logger.info(f"   → Found {len(vector_results)} indexed results")
         except Exception as e:
-            print(f"Vector search warning (first run?): {e}")
+            logger.warning(f"   → Vector search error: {e}")
             vector_results = []
         
         data_source = "indexed"
@@ -149,9 +175,11 @@ Query:"""
         if offset == 0:
             if not vector_results or len(vector_results) < 2:
                 should_fetch_external = True
+                logger.info("   → Insufficient indexed results, will fetch external")
         elif len(vector_results) < max_results:
              should_fetch_external = True
              data_source = "external_api"
+             logger.info("   → Need more results, fetching external")
 
         if should_fetch_external:
             # Fallback to external APIs

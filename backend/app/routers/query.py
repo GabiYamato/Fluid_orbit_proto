@@ -5,6 +5,7 @@ from sqlalchemy import select
 from datetime import datetime
 from typing import Optional
 import time
+import logging
 
 from app.database import get_db
 from app.models.user import User
@@ -14,6 +15,17 @@ from app.utils.jwt import get_current_user
 from app.utils.rate_limiter import check_rate_limit
 from app.services.query_service import QueryService
 from app.services.rag_service import RAGService
+
+# Configure query logger
+logger = logging.getLogger("query_router")
+logger.setLevel(logging.INFO)
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter(
+        "%(asctime)s | %(levelname)-8s | QUERY | %(message)s",
+        datefmt="%H:%M:%S"
+    ))
+    logger.addHandler(handler)
 
 router = APIRouter(prefix="/query", tags=["Query"])
 optional_security = HTTPBearer(auto_error=False)
@@ -103,6 +115,12 @@ async def stream_query_products(
     query_service = QueryService(db)
     rag_service = RAGService()
     
+    logger.info("=" * 60)
+    logger.info(f"📨 NEW STREAMING QUERY REQUEST")
+    logger.info(f"   User: {current_user.email}")
+    logger.info(f"   Query: '{request.query}'")
+    logger.info(f"   History items: {len(request.history)}")
+    
     # Intent parsing moves inside generator to use refined query
     # parsed_intent = await query_service.parse_intent(request.query)
     
@@ -114,8 +132,32 @@ async def stream_query_products(
         history_dicts = [h.model_dump() for h in request.history]
         refined_query = await rag_service.refine_query(request.query, history_dicts)
         
+        logger.info(f"   Refined query: '{refined_query}'")
+        
         # Parse intent from refined query
         parsed_intent = await query_service.parse_intent(refined_query)
+        
+        logger.info(f"   Parsed intent: category={parsed_intent.category}, budget={parsed_intent.budget_max}")
+        
+        # Check if we need more information from the user
+        from app.services.intent_parser_service import intent_parser_service
+        import json
+        
+        clarification_check = intent_parser_service.analyze_query(
+            query=request.query,
+            parsed_intent=parsed_intent.model_dump(),
+        )
+        
+        if clarification_check.needs_clarification:
+            # Send clarification event with widget definitions
+            clarification_data = {
+                "message": clarification_check.message,
+                "widgets": [w.model_dump() for w in clarification_check.widgets],
+                "parsed_so_far": clarification_check.parsed_so_far,
+            }
+            yield f"event: clarification\ndata: {json.dumps(clarification_data)}\n\n"
+            yield "event: done\ndata: [DONE]\n\n"
+            return
         
         yield "event: status\ndata: Searching options...\n\n"
 
