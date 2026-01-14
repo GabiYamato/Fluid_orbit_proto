@@ -396,28 +396,18 @@ Keep it concise (2-3 paragraphs max).
         limit: int = 10,
         offset: int = 0,
     ) -> List[Dict[str, Any]]:
-        """Search vector database for similar products."""
-        # Need either Gemini or OpenAI for embeddings
-        ai_client = self.gemini_client or self.openai_client
-        if not self.qdrant_client or not ai_client:
+        """Search vector database for similar products using Jina embeddings."""
+        if not self.qdrant_client:
             return []
         
         try:
-            # Generate embedding for query
-            if self.gemini_client:
-                # Use Gemini for embeddings - using text-embedding-004
-                result = self.gemini_client.models.embed_content(
-                    model='models/text-embedding-004',
-                    contents=query,  # Note: 'contents' not 'content'
-                )
-                query_embedding = result.embeddings[0].values
-            else:
-                # Fallback to OpenAI
-                embedding_response = await self.openai_client.embeddings.create(
-                    model=getattr(self, "embedding_model_name", "text-embedding-3-small"),
-                    input=query,
-                )
-                query_embedding = embedding_response.data[0].embedding
+            # Generate embedding for query using Jina v4
+            query_embedding = await self.jina_embedder.embed_query(query)
+            if query_embedding is None:
+                logger.warning("Failed to generate query embedding")
+                return []
+            
+            logger.info(f"   Generated query embedding (dim={len(query_embedding)})")
             
             # Build filter conditions
             filter_conditions = []
@@ -690,72 +680,68 @@ Respond in JSON format:
         return products
 
     async def _index_products(self, products: List[Dict[str, Any]]):
-        """Index products into Qdrant vector DB."""
+        """Index products into Qdrant vector DB using Jina embeddings."""
         if not self.qdrant_client or not products:
             return
 
-        points = []
+        import uuid
+        
+        # Prepare texts for batch embedding
+        texts_to_embed = []
+        valid_products = []
+        
         for product in products:
             # Create a rich text representation for embedding
-            text_to_embed = f"{product.get('title')} {product.get('description')} {product.get('category')} Price: ${product.get('price')}"
-            
-            try:
-                # Generate embedding
-                if self.gemini_client:
-                    # Use Gemini for embeddings - using text-embedding-004
-                    result = self.gemini_client.models.embed_content(
-                        model='models/text-embedding-004',
-                        contents=text_to_embed,
-                    )
-                    embedding = result.embeddings[0].values
-                elif self.openai_client:
-                    response = await self.openai_client.embeddings.create(
-                        model=getattr(self, "embedding_model_name", "text-embedding-3-small"),
-                        input=text_to_embed,
-                    )
-                    embedding = response.data[0].embedding
-                else:
-                    continue
-
-                # Prepare payload
-                payload = {
-                    "id": product.get("id"),
-                    "title": product.get("title"),
-                    "description": product.get("description"),
-                    "price": product.get("price"),
-                    "rating": product.get("rating"),
-                    "review_count": product.get("review_count"),
-                    "image_url": product.get("image_url"),
-                    "affiliate_url": product.get("affiliate_url"),
-                    "source": product.get("source"), # amazon_serp, etc
-                    "category": product.get("category"),
-                    "last_updated": datetime.utcnow().isoformat(),
-                }
-
-                # Add to points list
-                import uuid
-                
-                # Generate a UUID from the product ID to ensure it's a valid Qdrant ID
-                point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, str(product.get("id"))))
-
-                points.append(
-                    qdrant_models.PointStruct(
-                        id=point_id,
-                        vector=embedding,
-                        payload=payload,
-                    )
-                )
-
-            except Exception as e:
-                print(f"Error embedding product {product.get('id')}: {e}")
+            text = f"{product.get('title', '')} {product.get('description', '')} {product.get('category', '')} Price: ${product.get('price', 0)}"
+            texts_to_embed.append(text)
+            valid_products.append(product)
+        
+        if not texts_to_embed:
+            return
+        
+        # Batch embed using Jina v4
+        logger.info(f"   Embedding {len(texts_to_embed)} products with Jina v4...")
+        embeddings = await self.jina_embedder.embed_texts(texts_to_embed)
+        
+        points = []
+        for product, embedding in zip(valid_products, embeddings):
+            if embedding is None:
+                logger.warning(f"Failed to embed product: {product.get('title', 'unknown')}")
                 continue
+            
+            # Prepare payload
+            payload = {
+                "id": product.get("id"),
+                "title": product.get("title"),
+                "description": product.get("description"),
+                "price": product.get("price"),
+                "rating": product.get("rating"),
+                "review_count": product.get("review_count"),
+                "image_url": product.get("image_url"),
+                "affiliate_url": product.get("affiliate_url"),
+                "source": product.get("source"),
+                "category": product.get("category"),
+                "last_updated": datetime.utcnow().isoformat(),
+            }
+
+            # Generate a UUID from the product ID to ensure it's a valid Qdrant ID
+            point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, str(product.get("id"))))
+
+            points.append(
+                qdrant_models.PointStruct(
+                    id=point_id,
+                    vector=embedding,
+                    payload=payload,
+                )
+            )
         
         if points:
             try:
-                # Ensure collection exists
+                # Ensure collection exists with correct dimension
                 try:
                     self.qdrant_client.get_collection("products")
                 except Exception:
+                    logger.info(f"   Creating 'products' collection with dim={len(points[0].vector)}")
                     self.qdrant_client.create_collection(
                         collection_name="products",
                         vectors_config=qdrant_models.VectorParams(
@@ -769,6 +755,6 @@ Respond in JSON format:
                     collection_name="products",
                     points=points,
                 )
-                print(f"Indexed {len(points)} new products")
+                logger.info(f"   ✅ Indexed {len(points)} new products to Qdrant")
             except Exception as e:
-                print(f"Qdrant upsert error: {e}")
+                logger.error(f"   ❌ Qdrant upsert error: {e}")

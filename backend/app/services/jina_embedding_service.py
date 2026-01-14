@@ -15,6 +15,9 @@ _model = None
 _model_loading = False
 
 
+import asyncio
+import concurrent.futures
+
 def get_jina_model():
     """Lazy load the Jina model to avoid loading on every request."""
     global _model, _model_loading
@@ -118,41 +121,65 @@ class JinaEmbeddingService:
             print(f"Jina embedding error: {e}")
             return self._fallback_embed(text)
 
-    async def embed_texts(self, texts: List[str], task: str = "retrieval.passage") -> List[Optional[List[float]]]:
+    async def embed_texts(
+        self, texts: List[str], task: str = "retrieval.passage", batch_size: int = 32, max_retries: int = 3
+    ) -> List[Optional[List[float]]]:
         """
-        Generate embeddings for multiple texts (batch).
+        Generate embeddings for multiple texts (batch) with retry logic.
         
         Args:
             texts: List of texts to embed
             task: Embedding task type
+            batch_size: Max texts per batch to avoid OOM
+            max_retries: Number of retry attempts on failure
             
         Returns:
             List of embeddings (or None for failed items)
         """
+        import asyncio
+        
         if not texts:
             return []
             
         if self.model is None:
             return [self._fallback_embed(t) for t in texts]
 
-        try:
-            embeddings = self.model.encode(
-                texts,
-                task=task,
-                truncate_dim=self.EMBEDDING_DIM,
-            )
+        all_embeddings = []
+        
+        # Process in batches to avoid OOM
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i:i + batch_size]
+            batch_embeddings = None
             
-            result = []
-            for emb in embeddings:
-                if hasattr(emb, 'tolist'):
-                    result.append(emb.tolist())
-                else:
-                    result.append(list(emb))
-            return result
-
-        except Exception as e:
-            print(f"Jina batch embedding error: {e}")
-            return [self._fallback_embed(t) for t in texts]
+            # Retry loop with exponential backoff
+            for attempt in range(max_retries):
+                try:
+                    embeddings = self.model.encode(
+                        batch,
+                        task=task,
+                        truncate_dim=self.EMBEDDING_DIM,
+                    )
+                    
+                    batch_embeddings = []
+                    for emb in embeddings:
+                        if hasattr(emb, 'tolist'):
+                            batch_embeddings.append(emb.tolist())
+                        else:
+                            batch_embeddings.append(list(emb))
+                    break  # Success, exit retry loop
+                    
+                except Exception as e:
+                    wait_time = 2 ** attempt  # Exponential backoff: 1, 2, 4 seconds
+                    print(f"Jina batch embedding error (attempt {attempt + 1}/{max_retries}): {e}")
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(wait_time)
+                    else:
+                        # Final attempt failed, use fallback for this batch
+                        batch_embeddings = [self._fallback_embed(t) for t in batch]
+            
+            all_embeddings.extend(batch_embeddings or [self._fallback_embed(t) for t in batch])
+        
+        return all_embeddings
 
     async def embed_query(self, query: str) -> Optional[List[float]]:
         """
@@ -198,3 +225,16 @@ class JinaEmbeddingService:
     def dimension(self) -> int:
         """Return the embedding dimension."""
         return self.EMBEDDING_DIM
+
+    async def ensure_model_loaded(self):
+        """
+        Explicitly ensure the model is loaded. 
+        Useful during startup to avoid lag on first request.
+        """
+        if _model is not None:
+            return
+        
+        print("💡 Pre-loading Jina Embeddings model...")
+        # Run the synchronous loading in a thread to avoid blocking the event loop
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, get_jina_model)
