@@ -1,9 +1,8 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { useState } from 'react';
-import ChatHistoryPopup from './ChatHistoryPopup';
 
 interface ChatSession {
   id: string;
@@ -17,11 +16,15 @@ interface SidebarProps {
   onProfileClick?: () => void;
   onSettingsClick?: () => void;
   onLogoClick?: () => void;
+  onNewChat?: () => void;
+  onHistoryClick?: () => void;
   activeTab?: 'home' | 'profile' | 'settings';
   showProfilePopup?: boolean;
   chatSessions?: ChatSession[];
   onRestoreSession?: (sessionId: string) => void;
   onDeleteSession?: (sessionId: string) => void;
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
 }
 
 export default function Sidebar({
@@ -29,188 +32,218 @@ export default function Sidebar({
   onProfileClick,
   onSettingsClick,
   onLogoClick,
+  onNewChat,
+  onHistoryClick,
   activeTab,
   showProfilePopup,
   chatSessions = [],
   onRestoreSession,
   onDeleteSession,
+  isExpanded = false,
+  onToggleExpand,
 }: SidebarProps) {
-  const [showChatHistory, setShowChatHistory] = useState(false);
+  const [localExpanded, setLocalExpanded] = useState(isExpanded);
+  const expanded = onToggleExpand ? isExpanded : localExpanded;
+  const toggleExpand = onToggleExpand || (() => setLocalExpanded(!localExpanded));
+
+  // Show all past chats (like ChatGPT)
+  const allChats = chatSessions;
+
   return (
     <motion.div
       initial={{ x: -100, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      className="fixed left-0 top-0 h-screen w-16 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col items-center py-6 z-50 transition-colors duration-300"
+      animate={{ x: 0, opacity: 1, width: expanded ? 280 : 64 }}
+      transition={{ duration: 0.3 }}
+      className="fixed left-0 top-0 h-screen bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col py-4 z-50 transition-colors duration-300"
     >
-      {/* Logo */}
-      <div
-        className="relative mb-8"
-        onMouseEnter={() => setShowChatHistory(true)}
-        onMouseLeave={() => setShowChatHistory(false)}
-      >
-        <motion.div
-          whileHover={{ scale: 1.1 }}
-          className="cursor-pointer"
-          onClick={onLogoClick}
-        >
-          <Image
-            src="/fluidorbitlogo.jpg"
-            alt="Fluid Orbit"
-            width={40}
-            height={40}
-            className="rounded-full"
-          />
-        </motion.div>
-
-        {/* Invisible bridge to maintain hover state */}
-        {showChatHistory && (
-          <div className="absolute left-10 top-0 w-4 h-full" />
-        )}
-
-        {/* Chat History Popup - positioned to be within hover area */}
-        <div
-          onMouseEnter={() => setShowChatHistory(true)}
-          onMouseLeave={() => setShowChatHistory(false)}
-        >
-          {onRestoreSession && onDeleteSession && (
-            <ChatHistoryPopup
-              isOpen={showChatHistory}
-              sessions={chatSessions}
-              onRestoreSession={onRestoreSession}
-              onDeleteSession={onDeleteSession}
-            />
-          )}
-        </div>
-      </div>
-
-      {/* Navigation Icons */}
-      <div className="flex-1 flex flex-col gap-6">
-        {/* Home Button */}
-        <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={onHomeClick}
-          className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors ${activeTab === 'home' ? 'bg-gray-200 dark:bg-gray-700' : 'hover:bg-gray-100 dark:hover:bg-gray-800'
-            }`}
-          title="Home"
-        >
-          <svg
-            className="w-6 h-6 text-gray-700 dark:text-gray-300"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+      {/* Header Section */}
+      <div className="px-3 mb-4">
+        {/* Logo and Expand Button */}
+        <div className="flex items-center justify-between mb-4">
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            className="cursor-pointer flex items-center gap-3"
+            onClick={onLogoClick}
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+            <Image
+              src="/fluidorbitlogo.jpg"
+              alt="Fluid Orbit"
+              width={36}
+              height={36}
+              className="rounded-full"
             />
-          </svg>
-        </motion.button>
+            <AnimatePresence>
+              {expanded && (
+                <motion.span
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ opacity: 1, width: 'auto' }}
+                  exit={{ opacity: 0, width: 0 }}
+                  className="font-semibold text-gray-900 dark:text-white text-sm whitespace-nowrap overflow-hidden"
+                >
+                  Fluid Orbit
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </motion.div>
 
-        {/* History Button */}
-        <div
-          className="relative"
-          onMouseEnter={() => setShowChatHistory(true)}
-          onMouseLeave={() => setShowChatHistory(false)}
-        >
+          {/* Expand/Collapse Button */}
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
-            className="w-10 h-10 flex items-center justify-center rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
-            title="Chat History"
+            onClick={toggleExpand}
+            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            title={expanded ? 'Collapse' : 'Expand'}
           >
             <svg
-              className="w-6 h-6 text-gray-700 dark:text-gray-300"
+              className={`w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
-            {chatSessions.length > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-black dark:bg-white text-white dark:text-black text-xs rounded-full flex items-center justify-center">
-                {chatSessions.length}
-              </span>
-            )}
           </motion.button>
-
-          {/* History Popup */}
-          {onRestoreSession && onDeleteSession && (
-            <ChatHistoryPopup
-              isOpen={showChatHistory}
-              sessions={chatSessions}
-              onRestoreSession={(id) => {
-                setShowChatHistory(false);
-                onRestoreSession(id);
-              }}
-              onDeleteSession={onDeleteSession}
-            />
-          )}
         </div>
+
+        {/* New Chat Button */}
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={onNewChat}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-black dark:bg-white text-white dark:text-black font-medium transition-colors hover:bg-gray-800 dark:hover:bg-gray-200 ${!expanded ? 'justify-center' : ''}`}
+        >
+          <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          <AnimatePresence>
+            {expanded && (
+              <motion.span
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: 'auto' }}
+                exit={{ opacity: 0, width: 0 }}
+                className="text-sm whitespace-nowrap overflow-hidden"
+              >
+                New Chat
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </motion.button>
       </div>
 
-      {/* Bottom Icons */}
-      <div className="flex flex-col gap-6">
+      {/* Navigation */}
+      <div className="px-3 space-y-1">
+        {/* Home Button */}
+        <motion.button
+          whileHover={{ backgroundColor: 'rgba(0,0,0,0.05)' }}
+          whileTap={{ scale: 0.98 }}
+          onClick={onHomeClick}
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${activeTab === 'home' ? 'bg-gray-100 dark:bg-gray-800' : ''} ${!expanded ? 'justify-center' : ''}`}
+          title="Home"
+        >
+          <svg className="w-5 h-5 text-gray-700 dark:text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+          {expanded && <span className="text-sm text-gray-700 dark:text-gray-300">Home</span>}
+        </motion.button>
+
+        {/* History Button */}
+        <motion.button
+          whileHover={{ backgroundColor: 'rgba(0,0,0,0.05)' }}
+          whileTap={{ scale: 0.98 }}
+          onClick={onHistoryClick}
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${!expanded ? 'justify-center' : ''}`}
+          title="History"
+        >
+          <svg className="w-5 h-5 text-gray-700 dark:text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          {expanded && <span className="text-sm text-gray-700 dark:text-gray-300">History</span>}
+          {!expanded && chatSessions.length > 0 && (
+            <span className="absolute right-1 w-4 h-4 bg-black dark:bg-white text-white dark:text-black text-xs rounded-full flex items-center justify-center">
+              {chatSessions.length > 9 ? '9+' : chatSessions.length}
+            </span>
+          )}
+        </motion.button>
+      </div>
+
+      {/* Recent Chats Section */}
+      {expanded && allChats.length > 0 && (
+        <div className="flex-1 overflow-y-auto px-3 mt-4">
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 px-3">
+            Your Chats
+          </p>
+          <div className="space-y-1">
+            {allChats.map((session: ChatSession) => (
+              <motion.div
+                key={session.id}
+                whileHover={{ backgroundColor: 'rgba(0,0,0,0.05)' }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => onRestoreSession?.(session.id)}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-left group cursor-pointer"
+                role="button"
+                tabIndex={0}
+              >
+                <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-700 dark:text-gray-300 truncate">
+                    {session.preview}
+                  </p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                    {new Date(session.timestamp).toLocaleDateString()}
+                  </p>
+                </div>
+                {/* Delete button on hover */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteSession?.(session.id);
+                  }}
+                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-all flex-shrink-0"
+                >
+                  <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Spacer */}
+      {!expanded && <div className="flex-1" />}
+
+      {/* Bottom Section */}
+      <div className="px-3 mt-auto space-y-1 pt-4 border-t border-gray-200 dark:border-gray-700">
         {/* Profile Button */}
         <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
+          whileHover={{ backgroundColor: 'rgba(0,0,0,0.05)' }}
+          whileTap={{ scale: 0.98 }}
           onClick={onProfileClick}
-          className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors ${showProfilePopup ? 'bg-gray-200 dark:bg-gray-700' : activeTab === 'profile' ? 'bg-gray-200 dark:bg-gray-700' : 'hover:bg-gray-100 dark:hover:bg-gray-800'
-            }`}
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${showProfilePopup || activeTab === 'profile' ? 'bg-gray-100 dark:bg-gray-800' : ''} ${!expanded ? 'justify-center' : ''}`}
           title="Profile"
         >
-          <svg
-            className="w-6 h-6 text-gray-700 dark:text-gray-300"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-            />
+          <svg className="w-5 h-5 text-gray-700 dark:text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
           </svg>
+          {expanded && <span className="text-sm text-gray-700 dark:text-gray-300">Profile</span>}
         </motion.button>
 
         {/* Settings Button */}
         <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
+          whileHover={{ backgroundColor: 'rgba(0,0,0,0.05)' }}
+          whileTap={{ scale: 0.98 }}
           onClick={onSettingsClick}
-          className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors ${activeTab === 'settings' ? 'bg-gray-200 dark:bg-gray-700' : 'hover:bg-gray-100 dark:hover:bg-gray-800'
-            }`}
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${activeTab === 'settings' ? 'bg-gray-100 dark:bg-gray-800' : ''} ${!expanded ? 'justify-center' : ''}`}
           title="Settings"
         >
-          <svg
-            className="w-6 h-6 text-gray-700 dark:text-gray-300"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-            />
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-            />
+          <svg className="w-5 h-5 text-gray-700 dark:text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
+          {expanded && <span className="text-sm text-gray-700 dark:text-gray-300">Settings</span>}
         </motion.button>
       </div>
     </motion.div>
