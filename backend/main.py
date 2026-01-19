@@ -23,11 +23,11 @@ async def lifespan(app: FastAPI):
     
     # Pre-download/load embedding model
     try:
-        from app.services.jina_embedding_service import JinaEmbeddingService
-        embedder = JinaEmbeddingService()
+        from app.services.local_embedding_service import LocalEmbeddingService
+        embedder = LocalEmbeddingService()
         await embedder.ensure_model_loaded()
     except Exception as e:
-        logger.warning(f"⚠️ Could not pre-load Jina model: {e}")
+        print(f"⚠️ Warning: Could not pre-load Local embedding model: {e}")
 
     await init_db()
     logger.info("✅ Database initialized")

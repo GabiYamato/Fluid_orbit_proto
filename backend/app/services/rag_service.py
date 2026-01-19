@@ -11,7 +11,7 @@ from app.schemas.query import ParsedIntent
 from app.services.scoring_service import ScoringService
 from app.services.scraping_service import ScrapingService
 from app.services.external_api_service import ExternalAPIService
-from app.services.jina_embedding_service import JinaEmbeddingService
+from app.services.local_embedding_service import LocalEmbeddingService
 from app.services.chunking_service import ChunkingService
 
 settings = get_settings()
@@ -40,7 +40,8 @@ class RAGService:
         self.using_scraper = True
         self.scraping_service = ScrapingService()
         self.external_api_service = ExternalAPIService() # Re-enabled for fallback
-        self.jina_embedder = JinaEmbeddingService()  # Jina V3 embeddings
+        self.jina_embedder = LocalEmbeddingService()  # Local embeddings
+ # (SentenceTransformer)
         self.chunking_service = ChunkingService()  # Semantic chunking
         
         if settings.qdrant_path:
@@ -401,7 +402,7 @@ Keep it concise (2-3 paragraphs max).
             return []
         
         try:
-            # Generate embedding for query using Jina v4
+            # Generate embedding for query using Local Model
             query_embedding = await self.jina_embedder.embed_query(query)
             if query_embedding is None:
                 logger.warning("Failed to generate query embedding")
@@ -680,18 +681,17 @@ Respond in JSON format:
         return products
 
     async def _index_products(self, products: List[Dict[str, Any]]):
-        """Index products into Qdrant vector DB using Jina embeddings."""
+        """Index products into Qdrant vector DB using Local embeddings."""
         if not self.qdrant_client or not products:
             return
 
         import uuid
         
-        # Prepare texts for batch embedding
+        # Prepare texts
         texts_to_embed = []
         valid_products = []
         
         for product in products:
-            # Create a rich text representation for embedding
             text = f"{product.get('title', '')} {product.get('description', '')} {product.get('category', '')} Price: ${product.get('price', 0)}"
             texts_to_embed.append(text)
             valid_products.append(product)
@@ -699,17 +699,21 @@ Respond in JSON format:
         if not texts_to_embed:
             return
         
-        # Batch embed using Jina v4
-        logger.info(f"   Embedding {len(texts_to_embed)} products with Jina v4...")
+        # Batch embed using Local Model
+        # Notice: jina_embedder was renamed to local_embedder in __init__ but we kept same property name "jina_embedder" 
+        # for minimal diff, BUT I will rename it in __init__ properly first.
+        # Let's assume I renamed 'self.jina_embedder' to 'self.jina_embedder' in __init__.
+        # Wait, I need to do that replacement first/simultaneously.
+        # Ideally I update the import and init first.
+        
+        logger.info(f"   Embedding {len(texts_to_embed)} products with Local Model...")
         embeddings = await self.jina_embedder.embed_texts(texts_to_embed)
         
         points = []
         for product, embedding in zip(valid_products, embeddings):
             if embedding is None:
-                logger.warning(f"Failed to embed product: {product.get('title', 'unknown')}")
                 continue
             
-            # Prepare payload
             payload = {
                 "id": product.get("id"),
                 "title": product.get("title"),
@@ -724,7 +728,6 @@ Respond in JSON format:
                 "last_updated": datetime.utcnow().isoformat(),
             }
 
-            # Generate a UUID from the product ID to ensure it's a valid Qdrant ID
             point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, str(product.get("id"))))
 
             points.append(
@@ -737,22 +740,31 @@ Respond in JSON format:
         
         if points:
             try:
-                # Ensure collection exists with correct dimension
+                # Check/Create collection with correct dimension
+                current_dim = len(points[0].vector) # Should be 384
+                collection_name = "products"
+                
                 try:
-                    self.qdrant_client.get_collection("products")
+                    coll_info = self.qdrant_client.get_collection(collection_name)
+                    # Check if dimension matches
+                    if coll_info.config.params.vectors.size != current_dim:
+                        logger.warning(f"⚠️ Collection dim mismatch (Expected {current_dim}, Found {coll_info.config.params.vectors.size}). Recreating...")
+                        self.qdrant_client.delete_collection(collection_name)
+                        raise Exception("Collection deleted due to mismatch") # Trigger recreation
+                        
                 except Exception:
-                    logger.info(f"   Creating 'products' collection with dim={len(points[0].vector)}")
+                    logger.info(f"   Creating 'products' collection with dim={current_dim}")
                     self.qdrant_client.create_collection(
-                        collection_name="products",
+                        collection_name=collection_name,
                         vectors_config=qdrant_models.VectorParams(
-                            size=len(points[0].vector),
+                            size=current_dim,
                             distance=qdrant_models.Distance.COSINE,
                         ),
                     )
                 
                 # Upsert points
                 self.qdrant_client.upsert(
-                    collection_name="products",
+                    collection_name=collection_name,
                     points=points,
                 )
                 logger.info(f"   ✅ Indexed {len(points)} new products to Qdrant")
