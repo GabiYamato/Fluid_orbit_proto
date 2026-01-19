@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { useState, useRef, useEffect } from 'react';
-import ProductCard from './ProductCard';
+import ProductCard, { ProductCardSkeleton } from './ProductCard';
 import SearchBar from './SearchBar';
 import Sidebar from './Sidebar';
 import ProfilePopup from './ProfilePopup';
@@ -11,6 +11,7 @@ import SettingsPopup from './SettingsPopup';
 import EmailUpdatePopup from './EmailUpdatePopup';
 import PasswordUpdatePopup from './PasswordUpdatePopup';
 import HelpPopup from './HelpPopup';
+import ClarificationWidget from './ClarificationWidget';
 
 interface ResultsPageProps {
   onSearch: (query: string) => void;
@@ -23,7 +24,23 @@ interface ResultsPageProps {
   onHelpClick?: () => void;
   onEmailUpdate?: (email: string) => void;
   onLogoClick?: () => void;
-  chatHistory?: Array<{ role: 'user' | 'ai'; content: string; timestamp?: string; error?: boolean; details?: string; products?: any[] }>;
+  onNewChat?: () => void;
+  onHistoryClick?: () => void;
+  sidebarExpanded?: boolean;
+  onToggleSidebar?: () => void;
+  chatHistory?: Array<{
+    role: 'user' | 'ai';
+    content: string;
+    timestamp?: string;
+    error?: boolean;
+    details?: string;
+    products?: any[];
+    clarification?: {
+      message: string;
+      widgets: any[];
+      parsedSoFar: Record<string, any>;
+    };
+  }>;
   searchQuery?: string;
   chatSessions?: Array<{
     id: string;
@@ -47,6 +64,10 @@ export default function ResultsPage({
   onHelpClick,
   onEmailUpdate,
   onLogoClick,
+  onNewChat,
+  onHistoryClick,
+  sidebarExpanded = false,
+  onToggleSidebar,
   chatHistory = [],
   searchQuery,
   chatSessions = [],
@@ -60,6 +81,7 @@ export default function ResultsPage({
   const [showEmailUpdate, setShowEmailUpdate] = useState(false);
   const [showPasswordUpdate, setShowPasswordUpdate] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [expandedProducts, setExpandedProducts] = useState<Record<number, boolean>>({});
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new messages arrive
@@ -76,11 +98,15 @@ export default function ResultsPage({
           onProfileClick={() => setShowProfilePopup(true)}
           onSettingsClick={() => setShowSettings(true)}
           onLogoClick={onLogoClick}
+          onNewChat={onNewChat}
+          onHistoryClick={onHistoryClick}
           activeTab="home"
           showProfilePopup={showProfilePopup}
           chatSessions={chatSessions}
           onRestoreSession={onRestoreSession}
           onDeleteSession={onDeleteSession}
+          isExpanded={sidebarExpanded}
+          onToggleExpand={onToggleSidebar}
         />
       </div>
 
@@ -323,12 +349,12 @@ export default function ResultsPage({
       {/* Main Content */}
       <motion.div
         initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        className="flex-1 md:ml-16 pb-32 md:pb-24 pt-8"
+        animate={{ opacity: 1, marginLeft: sidebarExpanded ? 280 : 64 }}
+        transition={{ duration: 0.3 }}
+        className="flex-1 pb-32 md:pb-24 pt-8 hidden md:block"
       >
         {/* Chat History Section */}
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-6 sm:py-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 md:px-8 py-6 sm:py-8">
           <motion.h2
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -347,80 +373,176 @@ export default function ResultsPage({
           </motion.p>
 
           {/* Chat Messages */}
-          <div className="space-y-4 mb-8">
+          <div className="space-y-12 mb-12">
             {chatHistory.map((message, index) => (
               <motion.div
                 key={index}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
-                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}
               >
-                <div
-                  className={`max-w-[80%] rounded-2xl p-4 shadow-md ${message.role === 'user'
-                    ? 'bg-black dark:bg-white text-white dark:text-black'
-                    : message.error
-                      ? 'bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-700'
-                      : 'bg-white dark:bg-gray-800 text-black dark:text-white'
-                    }`}
-                >
-                  {message.role === 'ai' && message.error ? (
-                    <div>
-                      <h3 className="text-lg font-semibold mb-2 text-red-700 dark:text-red-400">
-                        ⚠️ Connection Error
-                      </h3>
-                      <p className="text-red-700 dark:text-red-400 font-medium mb-2">{message.content}</p>
-                      {message.details && (
-                        <details className="mt-4">
-                          <summary className="text-sm text-red-600 dark:text-red-400 cursor-pointer hover:text-red-800 dark:hover:text-red-300">
-                            Technical Details
-                          </summary>
-                          <pre className="text-xs text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 p-3 rounded mt-2 overflow-auto">
-                            {message.details}
-                          </pre>
-                        </details>
-                      )}
-                    </div>
-                  ) : message.role === 'ai' && !message.content && isStreaming ? (
-                    <div className="flex items-center gap-2">
-                      <div className="flex gap-1">
-                        <span className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                        <span className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                        <span className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                {/* User message */}
+                {message.role === 'user' && (
+                  <div className="max-w-[80%] rounded-2xl p-4 shadow-md bg-black dark:bg-white text-white dark:text-black">
+                    <p className="whitespace-pre-wrap">{message.content}</p>
+                    {message.timestamp && (
+                      <p className="text-xs mt-2 text-gray-300 dark:text-gray-600">
+                        {new Date(message.timestamp).toLocaleTimeString()}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* AI response with products */}
+                {message.role === 'ai' && (
+                  <div className="w-full space-y-4">
+                    {/* Product Cards Section - Above AI message */}
+                    {message.products && message.products.length > 0 && (() => {
+                      const isExpanded = expandedProducts[index];
+                      const visibleProducts = isExpanded ? message.products : message.products.slice(0, 4);
+                      const hasMore = message.products.length > 4;
+
+                      return (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="w-full"
+                        >
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
+                            <span>🛍️</span>
+                            Found {message.products.length} products
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                            {visibleProducts.map((product: any, pIndex: number) => (
+                              <ProductCard
+                                key={product.id || pIndex}
+                                product={product}
+                                index={pIndex}
+                              />
+                            ))}
+                          </div>
+                          {hasMore && (
+                            <motion.button
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => setExpandedProducts(prev => ({ ...prev, [index]: !isExpanded }))}
+                              className="mt-4 w-full py-3 px-4 border-2 border-gray-200 dark:border-gray-700 rounded-xl text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+                            >
+                              {isExpanded ? (
+                                <>
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                  </svg>
+                                  Show Less
+                                </>
+                              ) : (
+                                <>
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                  Show {message.products.length - 4} More Products
+                                </>
+                              )}
+                            </motion.button>
+                          )}
+                        </motion.div>
+                      );
+                    })()}
+
+                    {/* Product Skeleton Loaders when streaming and no products yet */}
+                    {isStreaming && index === chatHistory.length - 1 && (!message.products || message.products.length === 0) && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="w-full"
+                      >
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
+                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Searching for products...
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                          {[...Array(4)].map((_, i) => (
+                            <ProductCardSkeleton key={i} />
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {/* AI Message Bubble or Clarification Widget */}
+                    {message.clarification && message.clarification.widgets?.length > 0 ? (
+                      <ClarificationWidget
+                        message={message.clarification.message}
+                        widgets={message.clarification.widgets}
+                        parsedSoFar={message.clarification.parsedSoFar}
+                        onSubmit={(responses) => {
+                          // Build a natural language query from responses
+                          const parts = Object.entries(responses)
+                            .filter(([_, v]) => v)
+                            .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`);
+                          const clarificationQuery = parts.join(', ');
+                          onSearch(clarificationQuery);
+                        }}
+                        onSkip={() => {
+                          // Skip clarification and proceed with current context
+                          onSearch('show me what you have');
+                        }}
+                      />
+                    ) : (
+                      <div
+                        className={`max-w-[80%] rounded-2xl p-4 shadow-md ${message.error
+                          ? 'bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-700'
+                          : 'bg-white dark:bg-gray-800 text-black dark:text-white'
+                          }`}
+                      >
+                        {message.error ? (
+                          <div>
+                            <h3 className="text-lg font-semibold mb-2 text-red-700 dark:text-red-400">
+                              ⚠️ Connection Error
+                            </h3>
+                            <p className="text-red-700 dark:text-red-400 font-medium mb-2">{message.content}</p>
+                            {message.details && (
+                              <details className="mt-4">
+                                <summary className="text-sm text-red-600 dark:text-red-400 cursor-pointer hover:text-red-800 dark:hover:text-red-300">
+                                  Technical Details
+                                </summary>
+                                <pre className="text-xs text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 p-3 rounded mt-2 overflow-auto">
+                                  {message.details}
+                                </pre>
+                              </details>
+                            )}
+                          </div>
+                        ) : !message.content && isStreaming && index === chatHistory.length - 1 ? (
+                          <div className="flex items-center gap-2">
+                            <div className="flex gap-1">
+                              <span className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                              <span className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                              <span className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                            </div>
+                            <span className="text-gray-500 dark:text-gray-400 text-sm">Analyzing...</span>
+                          </div>
+                        ) : (
+                          <>
+                            <p className="whitespace-pre-wrap">{message.content}</p>
+                            {isStreaming && index === chatHistory.length - 1 && (
+                              <span className="inline-block w-2 h-4 bg-black dark:bg-white ml-1 animate-pulse"></span>
+                            )}
+                          </>
+                        )}
+                        {message.timestamp && !isStreaming && (
+                          <p className="text-xs mt-2 text-gray-500 dark:text-gray-400">
+                            {new Date(message.timestamp).toLocaleTimeString()}
+                          </p>
+                        )}
                       </div>
-                      <span className="text-gray-500 dark:text-gray-400 text-sm">Thinking...</span>
-                    </div>
-                  ) : (
-                    <>
-                      <p className="whitespace-pre-wrap">{message.content}</p>
-                      {message.role === 'ai' && isStreaming && index === chatHistory.length - 1 && (
-                        <span className="inline-block w-2 h-4 bg-black dark:bg-white ml-1 animate-pulse"></span>
-                      )}
-                    </>
-                  )}
-                  {message.timestamp && (
-                    <p className={`text-xs mt-2 ${message.role === 'user' ? 'text-gray-300 dark:text-gray-600' : 'text-gray-500 dark:text-gray-400'}`}>
-                      {new Date(message.timestamp).toLocaleTimeString()}
-                    </p>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
               </motion.div>
             ))}
-
-            {/* Streaming Status Indicator */}
-            {isStreaming && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 pl-4"
-              >
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                <span>Generating response...</span>
-              </motion.div>
-            )}
 
             <div ref={chatEndRef} />
           </div>
