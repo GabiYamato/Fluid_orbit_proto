@@ -12,8 +12,9 @@ import ResultsPage from './components/ResultsPage';
 import SettingsPage from './components/SettingsPage';
 import PersonalizationPage from './components/PersonalizationPage';
 import HelpPage from './components/HelpPage';
+import HistoryPage from './components/HistoryPage';
 
-type AppState = 'auth' | 'loading' | 'skeleton' | 'home' | 'results' | 'settings' | 'personalization' | 'help';
+type AppState = 'auth' | 'loading' | 'skeleton' | 'home' | 'results' | 'settings' | 'personalization' | 'help' | 'history';
 
 // Backend API URL
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -26,7 +27,20 @@ export default function Home() {
   const [email, setEmail] = useState('user@example.com');
   const [error, setError] = useState<string>('');
   const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [chatHistory, setChatHistory] = useState<Array<{ role: 'user' | 'ai'; content: string; timestamp?: string; error?: boolean; details?: string; products?: any[] }>>([]);
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [chatHistory, setChatHistory] = useState<Array<{
+    role: 'user' | 'ai';
+    content: string;
+    timestamp?: string;
+    error?: boolean;
+    details?: string;
+    products?: any[];
+    clarification?: {
+      message: string;
+      widgets: any[];
+      parsedSoFar: Record<string, any>;
+    };
+  }>>([]);
   const [currentQuery, setCurrentQuery] = useState<string>('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [chatSessions, setChatSessions] = useState<Array<{
@@ -35,6 +49,7 @@ export default function Home() {
     messages: Array<{ role: 'user' | 'ai'; content: string; timestamp?: string }>;
     preview: string;
   }>>([]);
+
 
   // Load chat sessions and auth token from localStorage on mount
   useEffect(() => {
@@ -319,6 +334,8 @@ export default function Home() {
         { role: 'ai', content: '', timestamp: new Date().toISOString(), products: [] }
       ]);
 
+      let currentEventType = '';
+
       while (reader) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -328,18 +345,21 @@ export default function Home() {
 
         for (const line of lines) {
           if (line.startsWith('event: ')) {
-            const eventType = line.substring(7).trim();
+            currentEventType = line.substring(7).trim();
             continue;
           }
 
           if (line.startsWith('data: ')) {
             const data = line.substring(6).trim();
 
-            if (data === '[DONE]') continue;
+            if (data === '[DONE]') {
+              currentEventType = '';
+              continue;
+            }
 
             try {
-              // Check if it's products event
-              if (data.startsWith('[')) {
+              // Handle based on event type
+              if (currentEventType === 'products') {
                 products = JSON.parse(data);
                 // Update last AI message with products
                 setChatHistory(prev => {
@@ -349,7 +369,7 @@ export default function Home() {
                   }
                   return updated;
                 });
-              } else if (data.startsWith('{')) {
+              } else if (currentEventType === 'token') {
                 const parsed = JSON.parse(data);
                 if (parsed.text) {
                   aiResponseContent += parsed.text;
@@ -362,11 +382,36 @@ export default function Home() {
                     return updated;
                   });
                 }
+              } else if (currentEventType === 'clarification') {
+                // Handle clarification requests with widgets
+                const clarification = JSON.parse(data);
+                setChatHistory(prev => {
+                  const updated = [...prev];
+                  if (updated.length > 0 && updated[updated.length - 1].role === 'ai') {
+                    updated[updated.length - 1] = {
+                      ...updated[updated.length - 1],
+                      content: clarification.message || 'I need more information...',
+                      clarification: {
+                        message: clarification.message,
+                        widgets: clarification.widgets || [],
+                        parsedSoFar: clarification.parsed_so_far || {},
+                      },
+                    };
+                  }
+                  return updated;
+                });
+              } else if (currentEventType === 'status') {
+                // Status updates (optional: could show in UI)
+                console.log('Status:', data);
+              } else if (currentEventType === 'scraped_count') {
+                console.log('Scraped count:', data);
               }
             } catch (e) {
               // Not JSON, might be status message
-              console.log('SSE data:', data);
+              console.log('SSE parse error:', e, 'data:', data);
             }
+
+            currentEventType = ''; // Reset after processing
           }
         }
       }
@@ -429,6 +474,25 @@ export default function Home() {
     setAppState('help');
   };
 
+  const handleNewChat = () => {
+    // Save current chat if there's content
+    if (chatHistory.length > 0) {
+      saveCurrentChatSession();
+    }
+    // Reset chat
+    setChatHistory([]);
+    setCurrentQuery('');
+    setAppState('home');
+  };
+
+  const handleHistoryClick = () => {
+    setAppState('history');
+  };
+
+  const toggleSidebar = () => {
+    setSidebarExpanded(!sidebarExpanded);
+  };
+
   const handleLogoClick = () => {
     saveCurrentChatSession();
     setAppState('home');
@@ -489,6 +553,17 @@ export default function Home() {
           onPersonalizationClick={handlePersonalizationClick}
           onHelpClick={handleHelpClick}
           onEmailUpdate={handleEmailUpdate}
+          onNewChat={handleNewChat}
+          onHistoryClick={handleHistoryClick}
+          onLogoClick={handleLogoClick}
+          chatSessions={chatSessions}
+          onRestoreSession={(sessionId) => {
+            restoreChatSession(sessionId);
+            setAppState('results');
+          }}
+          onDeleteSession={deleteChatSession}
+          sidebarExpanded={sidebarExpanded}
+          onToggleSidebar={toggleSidebar}
         />
       )}
 
@@ -504,6 +579,10 @@ export default function Home() {
           onPersonalizationClick={handlePersonalizationClick}
           onHelpClick={handleHelpClick}
           onEmailUpdate={handleEmailUpdate}
+          onNewChat={handleNewChat}
+          onHistoryClick={handleHistoryClick}
+          sidebarExpanded={sidebarExpanded}
+          onToggleSidebar={toggleSidebar}
           chatHistory={chatHistory}
           searchQuery={currentQuery}
           onLogoClick={handleLogoClick}
@@ -552,6 +631,27 @@ export default function Home() {
           chatSessions={chatSessions}
           onRestoreSession={restoreChatSession}
           onDeleteSession={deleteChatSession}
+        />
+      )}
+
+      {appState === 'history' && (
+        <HistoryPage
+          key="history"
+          username={displayName}
+          email={email}
+          chatSessions={chatSessions}
+          onHomeClick={handleHomeClick}
+          onSettingsClick={handleSettingsClick}
+          onNewChat={handleNewChat}
+          onRestoreSession={(sessionId) => {
+            restoreChatSession(sessionId);
+            setAppState('results');
+          }}
+          onDeleteSession={deleteChatSession}
+          onLogout={handleLogout}
+          onLogoClick={handleLogoClick}
+          sidebarExpanded={sidebarExpanded}
+          onToggleSidebar={toggleSidebar}
         />
       )}
     </AnimatePresence>
