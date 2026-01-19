@@ -1,53 +1,55 @@
 # Core Framework
-fastapi>=0.104.0
-uvicorn[standard]>=0.24.0
-python-dotenv>=1.0.0
-pydantic>=2.5.0
-pydantic-settings>=2.1.0
+fastapi
+uvicorn[standard]
+python-dotenv
+pydantic
+pydantic-settings
 
 # Database
-sqlalchemy>=2.0.0
-asyncpg>=0.29.0
-alembic>=1.13.0
-psycopg2-binary>=2.9.9
-aiosqlite>=0.19.0
+sqlalchemy
+asyncpg
+alembic
+psycopg2-binary
+aiosqlite
+greenlet
 
 # Authentication
-python-jose[cryptography]>=3.3.0
-passlib[bcrypt]>=1.7.4
-authlib>=1.2.0
-bcrypt>=4.1.0
+python-jose[cryptography]
+passlib[bcrypt]
+authlib
+bcrypt
 
 # HTTP Clients
-httpx>=0.25.0
-aiohttp>=3.9.0
+httpx
+aiohttp
 
 # Redis
-redis>=5.0.0
+redis
 
 # Vector DB
-qdrant-client>=1.7.0
+qdrant-client
 
 # AI/LLM
-openai>=1.6.0
-google-genai>=1.0.0
+openai
+google-genai
 
-# Embeddings (Jina v4 - Local Model)
-transformers>=4.40.0
-torch>=2.0.0
-einops>=0.8.0
-sentencepiece>=0.1.99
+# Embeddings (Local Model)
+sentence-transformers
+transformers
+torch
+einops
+sentencepiece
 
 # Scraping
-beautifulsoup4>=4.12.0
-lxml>=5.1.0
-google-search-results>=2.4.2
+beautifulsoup4
+lxml
+google-search-results
 
 # Rate Limiting
-slowapi>=0.1.9
+slowapi
 
 # Scheduler
-apscheduler>=3.10.0
+apscheduler
 
 # Email (OTP)
-fastapi-mail>=1.4.0
+fastapi-mail
