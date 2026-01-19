@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import ProfilePopup from './ProfilePopup';
 import NameEditPopup from './NameEditPopup';
 import PersonalizationPopup from './PersonalizationPopup';
@@ -9,6 +10,14 @@ import EmailUpdatePopup from './EmailUpdatePopup';
 import PasswordUpdatePopup from './PasswordUpdatePopup';
 import HelpPopup from './HelpPopup';
 import SupportChatbot from './SupportChatbot';
+import Sidebar from './Sidebar';
+
+interface ChatSession {
+  id: string;
+  timestamp: string;
+  messages: Array<{ role: 'user' | 'ai'; content: string; timestamp?: string }>;
+  preview: string;
+}
 
 interface HomePageProps {
   username?: string;
@@ -20,6 +29,14 @@ interface HomePageProps {
   onPersonalizationClick?: () => void;
   onHelpClick?: () => void;
   onEmailUpdate?: (email: string) => void;
+  onNewChat?: () => void;
+  onHistoryClick?: () => void;
+  onLogoClick?: () => void;
+  chatSessions?: ChatSession[];
+  onRestoreSession?: (sessionId: string) => void;
+  onDeleteSession?: (sessionId: string) => void;
+  sidebarExpanded?: boolean;
+  onToggleSidebar?: () => void;
 }
 
 // Icon components
@@ -105,6 +122,14 @@ export default function HomePage({
   onPersonalizationClick,
   onHelpClick,
   onEmailUpdate,
+  onNewChat,
+  onHistoryClick,
+  onLogoClick,
+  chatSessions = [],
+  onRestoreSession,
+  onDeleteSession,
+  sidebarExpanded = false,
+  onToggleSidebar,
 }: HomePageProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showProfilePopup, setShowProfilePopup] = useState(false);
@@ -123,7 +148,26 @@ export default function HomePage({
   };
 
   return (
-    <div className="flex flex-col md:flex-row h-screen bg-white dark:bg-gray-900 font-sans text-gray-900 dark:text-gray-100 transition-colors duration-300">
+    <div className="flex h-screen bg-white dark:bg-gray-900 font-sans text-gray-900 dark:text-gray-100 transition-colors duration-300">
+      {/* Sidebar - Desktop Only */}
+      <div className="hidden md:block">
+        <Sidebar
+          onHomeClick={() => { }}
+          onProfileClick={() => setShowProfilePopup(true)}
+          onSettingsClick={() => setShowSettings(true)}
+          onLogoClick={onLogoClick}
+          onNewChat={onNewChat}
+          onHistoryClick={onHistoryClick}
+          activeTab="home"
+          showProfilePopup={showProfilePopup}
+          chatSessions={chatSessions}
+          onRestoreSession={onRestoreSession}
+          onDeleteSession={onDeleteSession}
+          isExpanded={sidebarExpanded}
+          onToggleExpand={onToggleSidebar}
+        />
+      </div>
+
       {/* Profile Popup */}
       <ProfilePopup
         isOpen={showProfilePopup}
@@ -260,40 +304,6 @@ export default function HomePage({
       {/* Help Popup */}
       <HelpPopup isOpen={showHelp} onClose={() => setShowHelp(false)} />
 
-      {/* Sidebar - Desktop */}
-      <aside className="hidden md:flex w-20 flex-col items-center justify-between py-6 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transition-colors duration-300">
-        <div className="flex flex-col items-center space-y-8">
-          {/* Active Logo */}
-          <button className="p-4 text-gray-900 rounded-lg">
-            <img
-              src="/fluidorbitlogo.jpg"
-              alt="Fluid Orbit Logo"
-              className="h-10 w-10 object-contain"
-            />
-          </button>
-          {/* Home Icon */}
-          <button className=" text-gray-500 hover:text-black rounded-lg">
-            <HomeIcon className="h-6 w-6" />
-          </button>
-        </div>
-        <div className="flex flex-col items-center space-y-6">
-          {/* Settings Icon */}
-          <button
-            onClick={() => setShowSettings(true)}
-            className="p-2 text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white rounded-lg transition-colors"
-          >
-            <SettingsIcon className="h-6 w-6" />
-          </button>
-          {/* User Icon */}
-          <button
-            onClick={() => setShowProfilePopup(true)}
-            className="p-2 text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white rounded-lg transition-colors"
-          >
-            <UserIcon className="h-6 w-6" />
-          </button>
-        </div>
-      </aside>
-
       {/* Mobile Bottom Navigation */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-40 transition-colors duration-300">
         <div className="flex items-center justify-around py-3 px-4">
@@ -319,7 +329,12 @@ export default function HomePage({
       </nav>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden pb-20 md:pb-0">
+      <motion.main
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1, marginLeft: sidebarExpanded ? 280 : 64 }}
+        transition={{ duration: 0.3 }}
+        className="flex-1 flex flex-col overflow-hidden pb-20 md:pb-0 hidden md:flex"
+      >
         {/* Centered Heading */}
         <div className="flex-1 flex h-full flex-col justify-center items-center text-center px-4 sm:px-8 md:px-16 lg:px-40">
           <div className="flex items-center gap-4 sm:gap-6">
@@ -381,6 +396,63 @@ export default function HomePage({
               </div>
             </form>
           </div>
+        </div>
+      </motion.main>
+
+      {/* Mobile Main Content */}
+      <main className="flex-1 flex flex-col overflow-hidden pb-20 md:hidden">
+        {/* Centered Heading */}
+        <div className="flex-1 flex h-full flex-col justify-center items-center text-center px-4">
+          <div className="flex items-center gap-4">
+            <h1 className="text-3xl font-bold tracking-widest text-black dark:text-white">
+              Hello,
+            </h1>
+            {username && username.trim() !== '' ? (
+              <h1
+                onClick={() => setShowNameEdit(true)}
+                className="text-3xl font-bold tracking-widest text-black dark:text-white cursor-pointer"
+              >
+                {username}
+              </h1>
+            ) : (
+              <button
+                onClick={() => setShowNameEdit(true)}
+                className="flex items-center gap-2 px-2 py-4 border-2 border-dashed border-green-600 rounded-lg"
+              >
+                <span className="text-lg font-medium text-green-600">Add Name</span>
+              </button>
+            )}
+          </div>
+          <p className="mt-4 text-base text-gray-600 dark:text-gray-400">
+            Shop at the Speed of Thought.
+          </p>
+        </div>
+
+        {/* Bottom Input Area */}
+        <div className="px-4 pb-6">
+          <form onSubmit={handleSubmit}>
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-4 flex items-center border border-gray-200 dark:border-gray-700">
+              <textarea
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="flex-1 bg-transparent border-none resize-none text-base text-gray-700 dark:text-gray-300 placeholder:text-gray-500 outline-none"
+                placeholder="Shop Anything..."
+                rows={2}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSubmit(e);
+                  }
+                }}
+              />
+              <button
+                type="submit"
+                className="ml-2 p-2 bg-black dark:bg-white text-white dark:text-black rounded-lg"
+              >
+                <ArrowUpIcon className="h-4 w-4" />
+              </button>
+            </div>
+          </form>
         </div>
       </main>
     </div>
