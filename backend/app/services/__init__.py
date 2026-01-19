@@ -4,7 +4,7 @@ from .rag_service import RAGService
 from .scoring_service import ScoringService
 from .external_api_service import ExternalAPIService
 from .chunking_service import ChunkingService
-from .jina_embedding_service import JinaEmbeddingService
+from .local_embedding_service import LocalEmbeddingService
 from .otp_service import OTPService
 from .intent_parser_service import IntentParserService
 
@@ -15,7 +15,7 @@ __all__ = [
     "ScoringService",
     "ExternalAPIService",
     "ChunkingService",
-    "JinaEmbeddingService",
+    "LocalEmbeddingService",
     "OTPService",
     "IntentParserService",
 ]

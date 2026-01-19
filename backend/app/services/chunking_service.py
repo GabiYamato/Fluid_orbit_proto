@@ -39,12 +39,14 @@ class ChunkingService:
             self.openai_client = openai.AsyncOpenAI(api_key=settings.openai_api_key)
             self.model_name = "gpt-4o-mini"
 
-    async def chunk_product(self, product: Dict[str, Any]) -> List[Dict[str, Any]]:
+    async def chunk_product(self, product: Dict[str, Any], use_llm: bool = False) -> List[Dict[str, Any]]:
         """
         Chunk a single product into semantic chunks.
         
         Args:
             product: Raw product data with title, description, price, etc.
+            use_llm: If True, use LLM for semantic chunking (slower, rate-limited).
+                     If False (default), use fast rule-based chunking.
             
         Returns:
             List of chunk dictionaries, each containing:
@@ -52,6 +54,10 @@ class ChunkingService:
             - content: The chunk text
             - product_id: Reference to parent product
         """
+        # Fast path: use rule-based chunking (no LLM, no rate limits)
+        if not use_llm:
+            return self._create_basic_chunks(product)
+        
         if not self.gemini_client and not self.openai_client:
             # Fallback: create basic chunks without LLM
             return self._create_basic_chunks(product)
