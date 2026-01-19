@@ -199,27 +199,38 @@ class ScrapingService:
                 total_found = len(items)
                 logger.info(f"📦 Amazon HTML contains {len(items)} search result divs")
                 
-                for item in items:
+                for i, item in enumerate(items):
                     if len(products) >= limit:
                         break
                     
                     try:
-                        # Title
-                        title_el = item.select_one("h2 a span")
+                        # Title - try multiple selectors
+                        title_el = item.select_one("h2 a span") or item.select_one("h2 span") or item.select_one("h2 a")
                         if not title_el:
+                            # logger.debug(f"Amazon Item {i}: Missing title")
                             continue
                         title = title_el.text.strip()
                         
-                        # Price
+                        # Price - try multiple selectors
                         price_whole = item.select_one(".a-price-whole")
                         price_frac = item.select_one(".a-price-fraction")
                         
-                        if not price_whole:
-                            continue
+                        price = 0.0
+                        if price_whole:
+                            price_str = f"{price_whole.text.strip()}.{price_frac.text.strip() if price_frac else '00'}"
+                            price = self._parse_price(price_str)
+                        else:
+                            # Try looking for other price classes
+                            price_el = item.select_one(".a-color-price") or item.select_one(".a-offscreen")
+                            if price_el:
+                                price = self._parse_price(price_el.text)
                         
-                        price_str = f"{price_whole.text.strip()}.{price_frac.text.strip() if price_frac else '00'}"
-                        price = self._parse_price(price_str)
-                        
+                        if price == 0.0:
+                             # logger.debug(f"Amazon Item {i}: Zero/Missing price")
+                             # Use a placeholder price if scraping fails but we have other data? 
+                             # For now, let's be strict but helpful in logs
+                             pass
+
                         # Image
                         img_el = item.select_one("img.s-image")
                         image_url = img_el['src'] if img_el else ""
@@ -230,14 +241,19 @@ class ScrapingService:
                         
                         # Rating
                         rating_el = item.select_one(".a-icon-star-small .a-icon-alt")
-                        rating = float(rating_el.text.split(' ')[0]) if rating_el else 0.0
+                        rating = 0.0
+                        if rating_el:
+                            try:
+                                rating = float(rating_el.text.split(' ')[0])
+                            except:
+                                pass
                         
                         # Reviews
-                        review_el = item.select_one('[data-csa-c-type="rating"] + span')
+                        review_el = item.select_one('[data-csa-c-type="rating"] + span') or item.select_one('.a-size-base.s-underline-text')
                         review_count = 0
                         if review_el:
                             try:
-                                review_count = int(review_el.text.replace(',', '').strip())
+                                review_count = int(review_el.text.replace(',', '').replace('(', '').replace(')', '').strip())
                             except:
                                 pass
                         
@@ -254,6 +270,7 @@ class ScrapingService:
                             "last_updated": datetime.utcnow().isoformat()
                         })
                     except Exception as e:
+                        # logger.warning(f"Amazon parsing error item {i}: {e}")
                         continue
                         
         except Exception as e:

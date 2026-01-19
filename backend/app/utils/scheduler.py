@@ -105,7 +105,7 @@ async def run_electronics_scrape_job():
     
     from app.services.scraping_service import ScrapingService
     from app.services.chunking_service import ChunkingService
-    from app.services.jina_embedding_service import JinaEmbeddingService
+    from app.services.local_embedding_service import LocalEmbeddingService
     from qdrant_client import QdrantClient
     from qdrant_client.http import models as qdrant_models
     from app.config import get_settings
@@ -121,7 +121,7 @@ async def run_electronics_scrape_job():
 
     scraper = ScrapingService()
     chunker = ChunkingService()
-    embedder = JinaEmbeddingService()
+    embedder = LocalEmbeddingService()
 
     # Define electronics search queries
     queries = [
@@ -160,18 +160,29 @@ async def run_electronics_scrape_job():
 
     # Ensure collection exists
     try:
-        collection_info = qdrant_client.get_collection("product_chunks")
-        logger.info(f"📊 Collection 'product_chunks' exists with {collection_info.points_count} points")
-    except Exception:
-        logger.info("📦 Creating 'product_chunks' collection...")
-        qdrant_client.create_collection(
-            collection_name="product_chunks",
-            vectors_config=qdrant_models.VectorParams(
-                size=embedder.dimension,
-                distance=qdrant_models.Distance.COSINE,
-            ),
-        )
-        logger.info("✅ Collection created successfully")
+        collection_name = "product_chunks"
+        current_dim = embedder.EMBEDDING_DIM # 384
+        
+        try:
+            coll_info = qdrant_client.get_collection(collection_name)
+            if coll_info.config.params.vectors.size != current_dim:
+                logger.warning(f"⚠️ Collection dim mismatch (Expected {current_dim}, Found {coll_info.config.params.vectors.size}). Recreating...")
+                qdrant_client.delete_collection(collection_name)
+                raise Exception("Refetch to recreate")
+        except Exception:
+            logger.info(f"📦 Creating '{collection_name}' collection with dim={current_dim}...")
+            qdrant_client.create_collection(
+                collection_name=collection_name,
+                vectors_config=qdrant_models.VectorParams(
+                    size=current_dim,
+                    distance=qdrant_models.Distance.COSINE,
+                ),
+            )
+            logger.info("✅ Collection created successfully")
+            
+    except Exception as e:
+        logger.error(f"❌ Collection init error: {e}")
+        return
 
     total_indexed = 0
     total_products = 0
