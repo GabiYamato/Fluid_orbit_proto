@@ -83,6 +83,27 @@ export async function saveProduct(product: SaveProductRequest): Promise<SavedPro
             throw new Error('Please log in to save products');
         }
         if (response.status === 409) {
+            // Product already saved - fetch and return the existing one instead of throwing
+            const checkResponse = await fetch(`${API_URL}/saved-products/check`, {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ affiliate_url: product.affiliate_url }),
+            });
+            if (checkResponse.ok) {
+                const data = await checkResponse.json();
+                if (data.saved_product_id) {
+                    // Return a mock SavedProduct with the ID so the UI can track it
+                    return {
+                        id: data.saved_product_id,
+                        user_id: '',
+                        title: product.title,
+                        affiliate_url: product.affiliate_url,
+                        currency: product.currency || 'USD',
+                        saved_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                    } as SavedProduct;
+                }
+            }
             throw new Error('Product already saved');
         }
         throw new Error('Failed to save product');

@@ -315,14 +315,43 @@ export default function Home() {
       const data = await response.json();
 
       // Store token
-      setAccessToken(data.access_token);
-      localStorage.setItem('access_token', data.access_token);
+      const token = data.access_token;
+      setAccessToken(token);
+      localStorage.setItem('access_token', token);
       localStorage.setItem('user_email', email);
 
       const customName = localStorage.getItem('user_custom_name') || '';
       setUsername(customName);
       setDisplayName(customName);
       setEmail(email);
+
+      // Fetch user info and chat sessions from backend
+      try {
+        const [userResponse, sessionsResponse] = await Promise.all([
+          fetch(`${API_URL}/auth/me`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+          }),
+          fetch(`${API_URL}/history/sessions`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+          }),
+        ]);
+
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
+          if (userData.display_name) {
+            setUsername(userData.display_name);
+            setDisplayName(userData.display_name);
+            localStorage.setItem('user_custom_name', userData.display_name);
+          }
+        }
+
+        if (sessionsResponse.ok) {
+          const sessionsData = await sessionsResponse.json();
+          setChatSessions(sessionsData.sessions || []);
+        }
+      } catch (fetchError) {
+        console.log('Could not fetch user data or sessions:', fetchError);
+      }
 
       // Start the flow: loading -> skeleton -> home
       setAppState('loading');
