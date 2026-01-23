@@ -5,6 +5,8 @@ from qdrant_client.http import models as qdrant_models
 import openai
 import json
 import logging
+import asyncio
+import re
 
 from app.config import get_settings
 from app.schemas.query import ParsedIntent
@@ -143,8 +145,11 @@ Query:"""
         offset: int = 0,
     ) -> Dict[str, Any]:
         """
-        Search for products (Vector DB + External API Fallback + Scoring).
-        Returns raw product list and metadata.
+        Search for products with improved pipeline:
+        1. Check Vector DB first (only use if >3 relevant results)
+        2. Scrape retailers in parallel if needed
+        3. Use Gemini to filter irrelevant products immediately
+        4. Index to Vector DB in background
         """
         logger.info("=" * 50)
         logger.info(f"🔍 SEARCH REQUEST")
@@ -154,156 +159,164 @@ Query:"""
         logger.info(f"   Features: {parsed_intent.features}")
         logger.info(f"   Offset: {offset}, Max: {max_results}")
         
-        total_found = 0
-        # Try vector DB retrieval
+        products = []
+        data_source = "scraped"
+        
+        # STEP 1: Check Vector DB first (only use if we have >3 good results)
+        vector_results = []
         try:
-            logger.info("📊 Searching vector database (Qdrant)...")
-            vector_results = await self._search_vector_db(query, parsed_intent, limit=max_results, offset=offset)
-            logger.info(f"   → Found {len(vector_results)} indexed results")
+            vector_results = await self._search_vector_db(query, parsed_intent, limit=max_results + 5, offset=offset)
+            logger.info(f"   → Vector DB found {len(vector_results)} results")
         except Exception as e:
             logger.warning(f"   → Vector search error: {e}")
-            vector_results = []
         
-        data_source = "indexed"
-        confidence_level = "high"
-        disclaimer = None
-        
-        # Check confidence and fallback if needed
-        # We fallback if:
-        # 1. First page (offset=0) has few results
-        # 2. Deeper page (offset>0) has fewer results than requested (meaning we ran out of indexed items)
-        should_fetch_external = False
-        if offset == 0:
-            if not vector_results or len(vector_results) < 2:
-                should_fetch_external = True
-                logger.info("   → Insufficient indexed results, will fetch external")
-        elif len(vector_results) < max_results:
-             should_fetch_external = True
-             data_source = "external_api"
-             logger.info("   → Need more results, fetching external")
-
-        if should_fetch_external:
-            # Fallback to external APIs
+        # Only use vector results if we have enough (>3 quality matches)
+        if len(vector_results) > 3:
+            logger.info("   ✅ Using cached vector results")
+            products = vector_results
+            data_source = "indexed"
+        else:
+            # STEP 2: Scrape retailers in parallel
+            logger.info("📡 SCRAPING: Not enough cached results, scraping retailers...")
             
-            # Use LLM (Gemini or Local/OpenAI) to generate an optimized Google Shopping query
-            search_query = query
+            # Use the original query for scraping (more specific)
+            scrape_data = await self.scraping_service.search_and_scrape(query, limit=50)
+            scraped_products = scrape_data.get("products", [])
+            total_scraped = len(scraped_products)
+            logger.info(f"   → Scraped {total_scraped} products from retailers")
             
-            refinement_prompt = f"""Input: {query}
-Task: Amazon search keywords. No price/filler.
-Query:"""
-
-            try:
-                if self.gemini_client:
-                    resp = self.gemini_client.models.generate_content(
-                        model=self.model_name, # 'gemini-2.5-flash'
-                        contents=refinement_prompt,
-                    )
-                    cleaned = resp.text.strip().replace('"', '').replace('\n', '')
-                    if cleaned:
-                        search_query = cleaned
-                elif self.openai_client:
-                    system_msg = "You are a search query optimizer. Output ONLY the refined search query string. Do not provide explanations. Do not include price. If the user demand is general (e.g. 'best headset'), do NOT invent a brand. Keep it general."
-                    resp = await self.openai_client.chat.completions.create(
-                        model=self.model_name, # 'llama3.2:3b' or 'gpt-4o-mini'
-                        messages=[
-                            {"role": "system", "content": system_msg},
-                            {"role": "user", "content": refinement_prompt}
-                        ],
-                        max_tokens=30,
-                    )
-                    cleaned = resp.choices[0].message.content.strip().replace('"', '')
-                    # Llama fixes
-                    if cleaned.lower().startswith("search query:"):
-                        cleaned = cleaned[13:].strip()
-                    cleaned = cleaned.split('\n')[0].strip() # Take first line
-                    
-                    if cleaned:
-                        search_query = cleaned
-            except Exception as e:
-                print(f"Query refinement failed: {e}")
-
-            if search_query == query and parsed_intent.category:
-                # Fallback to manual construction if LLM failed
-                parts = []
-                if parsed_intent.brand_preferences:
-                    parts.extend(parsed_intent.brand_preferences)
-                parts.append(parsed_intent.category)
-                if parsed_intent.features:
-                    parts.extend(parsed_intent.features[:2])
+            if scraped_products:
+                # STEP 3: Use Gemini to filter irrelevant products IMMEDIATELY
+                # This fixes the "jeans → sunglasses" problem
+                logger.info("🤖 Using Gemini to filter relevant products...")
+                filtered_products = await self._filter_with_llm(query, scraped_products, parsed_intent)
+                logger.info(f"   → Gemini kept {len(filtered_products)}/{total_scraped} relevant products")
                 
-                if len(parts) > 1:
-                     search_query = " ".join(parts)
+                products = filtered_products
+                data_source = scrape_data.get("source", "retailers")
+                
+                # STEP 4: Index to Vector DB in BACKGROUND (don't wait)
+                if filtered_products:
+                    asyncio.create_task(self._background_index(filtered_products))
+                    logger.info("   → Background indexing started")
             
-            print(f"Refined Scraping Query (Offset {offset}): {search_query}")
+            # Merge with any vector results we had
+            if vector_results:
+                products = products + vector_results
 
-            scrape_data = await self.scraping_service.search_and_scrape(
-                query=search_query,
-                limit=50
-            )
-            external_results = scrape_data.get("products", [])
-            # Store total_found somewhere if needed, but RAGService returns dict.
-            # I'll attach it to the results wrapper later
-            self.last_scraped_count = scrape_data.get("total_found", 0) # Hacky? No instance var usage is risky if concurrent.
-            # Better to pass it through.
-            total_found = scrape_data.get("total_found", 0)
-            
-            # Fallback to SerpAPI if scraping failed
-            if not external_results:
-                print("⚠️ Scraping returned no results. Falling back to SerpAPI (Google Shopping)...")
-                external_results = await self.external_api_service.search_products(
-                    query=search_query,
-                    category=parsed_intent.category,
-                    budget_max=parsed_intent.budget_max,
-                    offset=offset,
-                )
-                if external_results:
-                    data_source = "external_api"
-            
-            # Filter by budget (if scraping worked, we still need to filter)
-            if parsed_intent.budget_max and data_source == "web_scraped":
-                 external_results = [p for p in external_results if p.get("price", 0) <= parsed_intent.budget_max]
-            
-            if external_results:
-                if data_source != "external_api": # If strictly scraped
-                    data_source = "web_scraped"
-                    confidence_level = "medium"
-                    disclaimer = "Results scraped from the web."
-                
-                # Index new products
-                try:
-                    await self._index_products(external_results)
-                    print(f"Indexed {len(external_results)} new products")
-                except Exception as e:
-                    print(f"Indexing error: {e}")
-                
-                vector_results = external_results
-            else:
-                # Use demo data if nothing else works
-                vector_results = self._get_demo_products(parsed_intent)
-                data_source = "demo"
-                confidence_level = "low"
-                disclaimer = "Showing demo results. Configure API keys for real data."
-        
-        # Score products
+        # Final fallback to Demo data if literally nothing found
+        if not products:
+            logger.warning("⚠️ No products found anywhere. Showing demo data.")
+            products = self._get_demo_products(parsed_intent)
+            data_source = "demo"
+
+        # Score and Sort (this also filters out products without links)
         scored_products = self.scoring_service.score_products(
-            products=vector_results,
+            products=products,
             intent=parsed_intent,
         )
-        
-        # Sort by final score
         scored_products.sort(key=lambda x: x.get("scores", {}).get("final_score", 0), reverse=True)
-        
-        # Limit results (if not already limited by vector search/api limit)
-        # Note: vector db has limit, but we re-sort, so we slice again to be safe
         top_products = scored_products[:max_results]
 
         return {
             "products": top_products,
-            "total_found": total_found,
+            "total_found": len(products),
             "data_source": data_source,
-            "confidence_level": confidence_level,
-            "disclaimer": disclaimer,
+            "confidence_level": "high" if data_source == "indexed" else "medium",
+            "disclaimer": None if data_source == "indexed" else f"Results discovered from {data_source}."
         }
+    
+    async def _filter_with_llm(
+        self,
+        query: str,
+        products: List[Dict[str, Any]],
+        intent: ParsedIntent,
+    ) -> List[Dict[str, Any]]:
+        """
+        Use Gemini/LLM to filter out products that don't match the query.
+        This prevents showing sunglasses when user searched for jeans.
+        """
+        if not products:
+            return []
+        
+        # Limit to first 30 products for LLM processing
+        products_to_check = products[:30]
+        
+        # Build product list for LLM
+        product_list = []
+        for i, p in enumerate(products_to_check):
+            product_list.append(f"{i+1}. {p.get('title', 'Unknown')}")
+        
+        prompt = f"""You are a product relevancy filter. The user searched for: "{query}"
+Category hint: {intent.category or 'not specified'}
+Features: {', '.join(intent.features) if intent.features else 'none'}
+
+Here are the product titles found:
+{chr(10).join(product_list)}
+
+Return ONLY the numbers of products that are RELEVANT to the search query "{query}".
+A product is relevant if it's the same type of item the user is looking for.
+For example, if searching "jeans", keep jeans/denim pants, but NOT sunglasses, shirts, or accessories.
+
+Return the numbers as a comma-separated list, e.g.: 1,3,5,7,12
+If none are relevant, return: NONE"""
+
+        try:
+            relevant_indices = set()
+            
+            if self.gemini_client:
+                resp = self.gemini_client.models.generate_content(
+                    model=self.model_name,
+                    contents=prompt,
+                )
+                response_text = resp.text.strip()
+            elif self.openai_client:
+                resp = await self.openai_client.chat.completions.create(
+                    model=self.model_name,
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=200,
+                )
+                response_text = resp.choices[0].message.content.strip()
+            else:
+                # No LLM available, return all products
+                return products
+            
+            logger.info(f"   LLM filter response: {response_text[:100]}...")
+            
+            if "NONE" in response_text.upper():
+                return []
+            
+            # Parse the response - extract numbers
+            numbers = re.findall(r'\d+', response_text)
+            for num_str in numbers:
+                try:
+                    idx = int(num_str) - 1  # Convert to 0-indexed
+                    if 0 <= idx < len(products_to_check):
+                        relevant_indices.add(idx)
+                except ValueError:
+                    continue
+            
+            # Return filtered products
+            filtered = [products_to_check[i] for i in sorted(relevant_indices)]
+            
+            # Also include remaining products that weren't checked (if any)
+            if len(products) > 30:
+                # Add remaining products at lower priority (they weren't LLM-checked)
+                filtered.extend(products[30:])
+            
+            return filtered if filtered else products[:10]  # Fallback to first 10 if filter failed
+            
+        except Exception as e:
+            logger.error(f"LLM filtering error: {e}")
+            return products  # On error, return all products
+    
+    async def _background_index(self, products: List[Dict[str, Any]]):
+        """Index products to vector DB in background (fire and forget)."""
+        try:
+            await self._index_products(products)
+            logger.info(f"💾 Background indexed {len(products)} products to vector DB")
+        except Exception as e:
+            logger.error(f"❌ Background indexing error: {e}")
 
     async def get_recommendations(
         self,
@@ -362,7 +375,7 @@ Found Products:
 Provide a helpful, conversational response summarizing these options. 
 Do NOT list every product in detail (the user sees the list).
 Highlight the best value or highest rated option if clear.
-Keep it concise (2-3 paragraphs max).
+Keep it extremely concise (2-3 lines max).
 """
 
         try:
@@ -482,7 +495,7 @@ Keep it concise (2-3 paragraphs max).
             ], indent=2)
             
             prompt = f"""You are a helpful product recommendation assistant. Based on the user's query and the scored products, provide:
-1. A brief 2-3 sentence summary explaining your recommendations
+1. A brief 2-3 line summary explaining your recommendations
 2. For each product, list 2-3 pros and 2-3 cons
 
 User Query: {query}

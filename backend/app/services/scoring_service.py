@@ -25,6 +25,14 @@ class ScoringService:
         "spec_match": 0.30,
     }
     
+    # Gender keywords for strict filtering
+    GENDER_KEYWORDS = {
+        "men": ["men's", "mens", "male", "man", " men ", "for men", "guys", "him"],
+        "women": ["women's", "womens", "female", "woman", " women ", "for women", "ladies", "her", "girls"],
+        "kids": ["kids", "children", "boys", "girls", "youth", "toddler", "baby", "infant"],
+        "unisex": ["unisex", "gender neutral", "all genders"],
+    }
+    
     def score_products(
         self,
         products: List[Dict[str, Any]],
@@ -34,13 +42,20 @@ class ScoringService:
         if not products:
             return []
         
+        # STEP 1: Apply strict filters (remove products that contradict user's intent)
+        filtered_products = self._filter_products(products, intent)
+        
+        if not filtered_products:
+            # Fallback: if filtering removed everything, use original list
+            filtered_products = products
+        
         # Calculate category stats for normalization
-        prices = [p.get("price", 0) for p in products if p.get("price")]
+        prices = [p.get("price", 0) for p in filtered_products if p.get("price")]
         median_price = self._median(prices) if prices else 100
-        max_reviews = max((p.get("review_count", 0) for p in products), default=1)
+        max_reviews = max((p.get("review_count") or 0 for p in filtered_products), default=1)
         
         scored_products = []
-        for product in products:
+        for product in filtered_products:
             scores = self._calculate_scores(
                 product=product,
                 intent=intent,
@@ -51,6 +66,76 @@ class ScoringService:
             scored_products.append(product)
         
         return scored_products
+    
+    def _filter_products(
+        self,
+        products: List[Dict[str, Any]],
+        intent: ParsedIntent,
+    ) -> List[Dict[str, Any]]:
+        """Apply strict filters to exclude products that contradict user intent."""
+        if not products:
+            return []
+        
+        # STEP 0: Filter out products without a valid link
+        # Products without links are not shoppable and should be excluded
+        products_with_links = []
+        for product in products:
+            link = product.get("affiliate_url") or product.get("link") or product.get("url")
+            if link and isinstance(link, str) and link.strip() and link.startswith("http"):
+                products_with_links.append(product)
+        
+        if not products_with_links:
+            # If all products were filtered out, fall back to original (shouldn't happen normally)
+            products_with_links = products
+        
+        products = products_with_links
+        
+        # Extract gender from features if present
+        user_gender = None
+        for feature in intent.features:
+            feature_lower = feature.lower()
+            if any(kw in feature_lower for kw in ["men's", "mens", "male", " men"]):
+                user_gender = "men"
+                break
+            elif any(kw in feature_lower for kw in ["women's", "womens", "female", " women", "ladies"]):
+                user_gender = "women"
+                break
+            elif any(kw in feature_lower for kw in ["kids", "children", "boys", "girls", "youth"]):
+                user_gender = "kids"
+                break
+            elif any(kw in feature_lower for kw in ["unisex"]):
+                user_gender = "unisex"
+                break
+        
+        if not user_gender:
+            return products  # No gender filter to apply
+        
+        # Determine which gender keywords to EXCLUDE
+        exclude_keywords = []
+        if user_gender == "men":
+            exclude_keywords = self.GENDER_KEYWORDS["women"] + self.GENDER_KEYWORDS["kids"]
+        elif user_gender == "women":
+            exclude_keywords = self.GENDER_KEYWORDS["men"] + self.GENDER_KEYWORDS["kids"]
+        elif user_gender == "kids":
+            # Don't exclude adult items for kids (parents often buy adult-looking stuff)
+            exclude_keywords = []
+        # Unisex: don't exclude anything
+        
+        filtered = []
+        for product in products:
+            product_text = f"{product.get('title', '')} {product.get('description', '')}".lower()
+            
+            # Check if product contains any excluded gender keywords
+            is_excluded = False
+            for kw in exclude_keywords:
+                if kw.lower() in product_text:
+                    is_excluded = True
+                    break
+            
+            if not is_excluded:
+                filtered.append(product)
+        
+        return filtered
     
     def _calculate_scores(
         self,
