@@ -20,6 +20,10 @@ class ChatMessage(BaseModel):
     role: str  # 'user' or 'ai'
     content: str
     timestamp: Optional[str] = None
+    products: Optional[List[dict]] = None  # List of product dicts for AI messages
+    error: Optional[bool] = None
+    details: Optional[str] = None
+    clarification: Optional[dict] = None  # Clarification widget data
 
 
 class ChatSession(BaseModel):
