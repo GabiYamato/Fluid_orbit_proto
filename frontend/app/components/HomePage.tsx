@@ -32,6 +32,7 @@ interface HomePageProps {
   onNewChat?: () => void;
   onHistoryClick?: () => void;
   onLogoClick?: () => void;
+  onSavedProductsClick?: () => void;
   chatSessions?: ChatSession[];
   onRestoreSession?: (sessionId: string) => void;
   onDeleteSession?: (sessionId: string) => void;
@@ -125,6 +126,7 @@ export default function HomePage({
   onNewChat,
   onHistoryClick,
   onLogoClick,
+  onSavedProductsClick,
   chatSessions = [],
   onRestoreSession,
   onDeleteSession,
@@ -158,6 +160,7 @@ export default function HomePage({
           onLogoClick={onLogoClick}
           onNewChat={onNewChat}
           onHistoryClick={onHistoryClick}
+          onSavedProductsClick={onSavedProductsClick}
           activeTab="home"
           showProfilePopup={showProfilePopup}
           chatSessions={chatSessions}

@@ -26,6 +26,7 @@ interface ResultsPageProps {
   onLogoClick?: () => void;
   onNewChat?: () => void;
   onHistoryClick?: () => void;
+  onSavedProductsClick?: () => void;
   sidebarExpanded?: boolean;
   onToggleSidebar?: () => void;
   chatHistory?: Array<{
@@ -84,6 +85,7 @@ export default function ResultsPage({
   onLogoClick,
   onNewChat,
   onHistoryClick,
+  onSavedProductsClick,
   sidebarExpanded = false,
   onToggleSidebar,
   chatHistory = [],
@@ -199,6 +201,7 @@ export default function ResultsPage({
           onLogoClick={onLogoClick}
           onNewChat={onNewChat}
           onHistoryClick={onHistoryClick}
+          onSavedProductsClick={onSavedProductsClick}
           activeTab="home"
           showProfilePopup={showProfilePopup}
           chatSessions={chatSessions}

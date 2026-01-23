@@ -14,8 +14,9 @@ import PersonalizationPage from './components/PersonalizationPage';
 import HelpPage from './components/HelpPage';
 import HistoryPage from './components/HistoryPage';
 import ConversationSearchPopup from './components/ConversationSearchPopup';
+import SavedProductsPage from './components/SavedProductsPage';
 
-type AppState = 'auth' | 'loading' | 'skeleton' | 'home' | 'results' | 'settings' | 'personalization' | 'help' | 'history';
+type AppState = 'auth' | 'loading' | 'skeleton' | 'home' | 'results' | 'settings' | 'personalization' | 'help' | 'history' | 'saved';
 
 // Backend API URL
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -616,6 +617,10 @@ export default function Home() {
     setCurrentSessionId(null);
   };
 
+  const handleSavedClick = () => {
+    setAppState('saved');
+  };
+
   return (
     <>
       <AnimatePresence mode="wait">
@@ -673,6 +678,7 @@ export default function Home() {
             onNewChat={handleNewChat}
             onHistoryClick={handleHistoryClick}
             onLogoClick={handleLogoClick}
+            onSavedProductsClick={handleSavedClick}
             chatSessions={chatSessions}
             onRestoreSession={(sessionId) => {
               restoreChatSession(sessionId);
@@ -698,6 +704,7 @@ export default function Home() {
             onEmailUpdate={handleEmailUpdate}
             onNewChat={handleNewChat}
             onHistoryClick={handleHistoryClick}
+            onSavedProductsClick={handleSavedClick}
             sidebarExpanded={sidebarExpanded}
             onToggleSidebar={toggleSidebar}
             chatHistory={chatHistory}
@@ -769,6 +776,13 @@ export default function Home() {
             onLogoClick={handleLogoClick}
             sidebarExpanded={sidebarExpanded}
             onToggleSidebar={toggleSidebar}
+          />
+        )}
+
+        {appState === 'saved' && (
+          <SavedProductsPage
+            key="saved"
+            onBack={handleHomeClick}
           />
         )}
       </AnimatePresence>
