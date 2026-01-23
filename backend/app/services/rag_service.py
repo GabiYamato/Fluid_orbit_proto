@@ -65,7 +65,7 @@ class RAGService:
             try:
                 from google import genai
                 self.gemini_client = genai.Client(api_key=settings.gemini_api_key)
-                self.model_name = "gemini-2.0-flash"
+                self.model_name = "gemini-2.5-flash-lite"
                 self.embedding_model_name = "models/text-embedding-004"
                 print(f"✨ Using Gemini ({self.model_name}) for all responses")
             except Exception as e:
