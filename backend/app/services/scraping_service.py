@@ -172,6 +172,40 @@ class ScrapingService:
                         title = title_el.get_text(strip=True)
                         if len(title) < 3: continue
                         
+                        # Extract description from multiple sources
+                        description = ""
+                        desc_selectors = [
+                            '[class*="description"]',
+                            '[class*="desc"]',
+                            '[class*="subtitle"]',
+                            '[class*="detail"]',
+                            '[class*="info"]',
+                            'p',
+                            '.product-description',
+                            '.product-info',
+                            '[class*="summary"]',
+                        ]
+                        for desc_sel in desc_selectors:
+                            desc_el = item.select_one(desc_sel)
+                            if desc_el:
+                                desc_text = desc_el.get_text(strip=True)
+                                # Only use if it's different from title and has meaningful content
+                                if desc_text and len(desc_text) > 10 and desc_text.lower() != title.lower():
+                                    description = desc_text[:200]  # Truncate to 200 chars
+                                    break
+                        
+                        # Fallback: try to get alt text from image
+                        if not description:
+                            img_for_alt = item.select_one('img[alt]')
+                            if img_for_alt:
+                                alt_text = img_for_alt.get('alt', '')
+                                if alt_text and len(alt_text) > 10 and alt_text.lower() != title.lower():
+                                    description = alt_text[:200]
+                        
+                        # If still no description, use formatted title with source info
+                        if not description:
+                            description = f"{title} from {config['name']}"
+                        
                         # Enhanced price extraction with multiple selectors
                         price_selectors = [
                             '[class*="price"]',
@@ -183,22 +217,29 @@ class ScrapingService:
                             '.sale-price',
                             '.current-price',
                             '.regular-price',
+                            '[class*="cost"]',
+                            '[class*="value"]',
+                            '.money',
+                            '[data-product-price]',
                         ]
                         price = 0.0
                         for selector in price_selectors:
                             price_el = item.select_one(selector)
                             if price_el:
-                                price_text = price_el.get('data-price') or price_el.get_text()
+                                # Try multiple attribute sources for price
+                                price_text = (
+                                    price_el.get('data-price') or 
+                                    price_el.get('data-product-price') or 
+                                    price_el.get('content') or 
+                                    price_el.get_text()
+                                )
                                 price = self._parse_price(price_text)
                                 if price > 0:
                                     break
                         
-                        img_el = item.select_one('img')
-                        img = ""
-                        if img_el:
-                            img = img_el.get('src') or img_el.get('data-src') or img_el.get('data-lazy-src') or ""
-                            if img and not img.startswith('http'):
-                                img = urljoin(f"https://{config['domain']}", img)
+                        # STRICT: Skip products without valid price
+                        if price <= 0:
+                            continue
                         
                         # improved link extraction
                         link_el = item.select_one('a[href]')
@@ -211,10 +252,21 @@ class ScrapingService:
                         raw_link = link_el['href']
                         link = urljoin(f"https://{config['domain']}", raw_link)
                         
+                        # STRICT: Skip products without valid link
+                        if not link or not link.startswith('http'):
+                            continue
+                        
+                        img_el = item.select_one('img')
+                        img = ""
+                        if img_el:
+                            img = img_el.get('src') or img_el.get('data-src') or img_el.get('data-lazy-src') or ""
+                            if img and not img.startswith('http'):
+                                img = urljoin(f"https://{config['domain']}", img)
+                        
                         found.append({
                             "id": link,
                             "title": title,
-                            "description": title,
+                            "description": description,
                             "price": price,
                             "image_url": img,
                             "affiliate_url": link,
@@ -236,13 +288,39 @@ class ScrapingService:
             
             prods = []
             for item in results.get("shopping_results", []):
+                price = self._parse_price(item.get("extracted_price") or item.get("price"))
+                link = item.get("link", "")
+                
+                # STRICT: Only include products with valid price AND link
+                if price <= 0 or not link or not link.startswith("http"):
+                    continue
+                
+                # Extract description from SerpAPI response
+                title = item.get("title", "")
+                source = item.get("source", "Google Shopping")
+                description = item.get("snippet") or item.get("description") or ""
+                if not description or len(description) < 10:
+                    # Build a basic description with available info
+                    rating = item.get("rating")
+                    reviews = item.get("reviews")
+                    if rating:
+                        description = f"{title}. Rated {rating}★"
+                        if reviews:
+                            description += f" ({reviews} reviews)"
+                        description += f" on {source}."
+                    else:
+                        description = f"{title} from {source}."
+                
                 prods.append({
-                    "id": item.get("product_id", item.get("link")),
-                    "title": item.get("title"),
-                    "price": self._parse_price(item.get("extracted_price") or item.get("price")),
+                    "id": item.get("product_id", link),
+                    "title": title,
+                    "description": description[:200],  # Truncate
+                    "price": price,
+                    "rating": item.get("rating"),
+                    "review_count": item.get("reviews"),
                     "image_url": item.get("thumbnail"),
-                    "affiliate_url": item.get("link"),
-                    "source": "google_shopping",
+                    "affiliate_url": link,
+                    "source": source,
                     "last_updated": datetime.utcnow().isoformat()
                 })
             return prods, ["google_shopping"]

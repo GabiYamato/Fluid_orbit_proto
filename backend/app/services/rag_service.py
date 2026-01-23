@@ -210,21 +210,118 @@ Query:"""
             products = self._get_demo_products(parsed_intent)
             data_source = "demo"
 
-        # Score and Sort (this also filters out products without links)
+        # Score and Sort (this also filters out products without valid links/prices)
+        logger.info(f"   → Pre-scoring: {len(products)} products")
         scored_products = self.scoring_service.score_products(
             products=products,
             intent=parsed_intent,
         )
+        logger.info(f"   → Post-scoring: {len(scored_products)} products (filtered out {len(products) - len(scored_products)} without price/link)")
         scored_products.sort(key=lambda x: x.get("scores", {}).get("final_score", 0), reverse=True)
         top_products = scored_products[:max_results]
+        
+        # Generate mini summaries for top products using LLM
+        if top_products and (self.gemini_client or self.openai_client):
+            try:
+                top_products = await self._generate_mini_summaries(top_products, query)
+            except Exception as e:
+                logger.warning(f"   ⚠️ Mini summary generation failed: {e}")
+        
+        # Log top product details for debugging
+        if top_products:
+            logger.info("   📦 Top products:")
+            for i, p in enumerate(top_products[:3]):
+                logger.info(f"      {i+1}. {p.get('title', 'Unknown')[:50]}... | ${p.get('price', 0)} | {p.get('affiliate_url', 'NO LINK')[:50]}...")
 
         return {
             "products": top_products,
-            "total_found": len(products),
+            "total_found": len(scored_products),  # Only count valid products
             "data_source": data_source,
             "confidence_level": "high" if data_source == "indexed" else "medium",
             "disclaimer": None if data_source == "indexed" else f"Results discovered from {data_source}."
         }
+    
+    async def _generate_mini_summaries(
+        self,
+        products: List[Dict[str, Any]],
+        query: str,
+    ) -> List[Dict[str, Any]]:
+        """
+        Use LLM to generate concise, helpful mini summaries for product descriptions.
+        These replace generic or title-only descriptions with meaningful content.
+        """
+        if not products:
+            return products
+        
+        # Only process products that need better descriptions
+        products_needing_summary = []
+        for i, p in enumerate(products):
+            desc = p.get("description", "")
+            title = p.get("title", "")
+            # Check if description is just the title or too short
+            if not desc or len(desc) < 20 or desc.lower() == title.lower() or desc.startswith(title):
+                products_needing_summary.append((i, p))
+        
+        if not products_needing_summary:
+            return products  # All products have good descriptions
+        
+        # Build prompt for batch summary generation
+        product_list = []
+        for idx, (_, p) in enumerate(products_needing_summary):
+            product_list.append(f"{idx+1}. Title: {p.get('title', 'Unknown')}, Price: ${p.get('price', 0)}, Source: {p.get('source', 'Unknown')}")
+        
+        prompt = f"""Generate short, helpful product descriptions (1-2 sentences each) for these items found for the search "{query}".
+Focus on what makes each item appealing. Be concise and informative.
+
+Products:
+{chr(10).join(product_list)}
+
+Return a JSON array with the format:
+[{{"index": 1, "summary": "Your concise description here"}}, ...]
+
+Only return the JSON array, nothing else."""
+
+        try:
+            response_text = ""
+            if self.gemini_client:
+                resp = self.gemini_client.models.generate_content(
+                    model=self.model_name,
+                    contents=prompt,
+                    config={
+                        'temperature': 0.7,
+                        'response_mime_type': 'application/json',
+                    }
+                )
+                response_text = resp.text.strip()
+            elif self.openai_client:
+                resp = await self.openai_client.chat.completions.create(
+                    model=self.model_name,
+                    messages=[{"role": "user", "content": prompt}],
+                    response_format={"type": "json_object"},
+                    max_tokens=500,
+                )
+                response_text = resp.choices[0].message.content.strip()
+            
+            if response_text:
+                # Parse JSON response
+                summaries = json.loads(response_text)
+                if isinstance(summaries, dict):
+                    summaries = summaries.get("summaries", summaries.get("items", []))
+                
+                # Apply summaries to products
+                for summary_item in summaries:
+                    idx = summary_item.get("index", 0) - 1
+                    new_desc = summary_item.get("summary", "")
+                    if 0 <= idx < len(products_needing_summary) and new_desc:
+                        original_idx = products_needing_summary[idx][0]
+                        products[original_idx]["description"] = new_desc[:200]
+                
+                logger.info(f"   ✨ Generated {len(summaries)} mini summaries")
+        
+        except Exception as e:
+            logger.warning(f"   Mini summary parsing error: {e}")
+        
+        return products
     
     async def _filter_with_llm(
         self,
