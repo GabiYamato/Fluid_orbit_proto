@@ -27,7 +27,7 @@ Before running the application, you need to configure the necessary API keys and
    GOOGLE_CLIENT_SECRET=your_client_secret_here
    ```
 
-### B. Gemini API (Optional, for Cloud LLM)
+### B. Gemini API (Recommended for Cloud LLM)
 1. Go to **[Google AI Studio](https://aistudio.google.com/app/apikey)**.
 2. Click **Create API key**.
 3. Copy the key to `.env`:
@@ -35,7 +35,7 @@ Before running the application, you need to configure the necessary API keys and
    GEMINI_API_KEY=your_gemini_key
    ```
 
-### C. OpenAI API (Optional, for Cloud LLM)
+### C. OpenAI API (Optional, alternative Cloud LLM)
 1. Go to **[OpenAI Platform](https://platform.openai.com/api-keys)**.
 2. Create a new secret key.
 3. Copy the key to `.env`:
@@ -50,7 +50,7 @@ Before running the application, you need to configure the necessary API keys and
 ### Prerequisites
 - **Python** (3.9+)
 - **Node.js** (18+)
-- **Redis** (Required)
+- **Redis** (Required for rate limiting & caching)
 - **Ollama** (Required for Local LLM)
 
 ### Backend Setup
@@ -126,16 +126,79 @@ OLLAMA_BASE_URL=http://localhost:11434/v1
 In `.env`:
 1. Set `USE_LOCAL_LLM=False`
 2. Ensure `GEMINI_API_KEY` or `OPENAI_API_KEY` is set.
-   *The system will prioritize Gemini if both are present, or check the code logic.*
+   *The system will prioritize Gemini if both are present.*
 
 ---
 
-## 4. Architecture & Troubleshooting
+## 4. New Features (v4.x)
+
+### Inventory Scraping Service
+The app now includes an automated inventory scraping system that:
+- Scrapes **37+ fashion retailers** asynchronously (all at once)
+- Generates embeddings using local sentence-transformers
+- Stores products in SQLite and Qdrant vector database
+
+**API Endpoints:**
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/inventory/scrape` | POST | Trigger full inventory scrape |
+| `/inventory/status` | GET | Check scrape status |
+| `/inventory/stats` | GET | Get product counts |
+| `/inventory/retailers` | GET | List all retailers |
+
+**To trigger a manual scrape:**
+```bash
+curl -X POST http://localhost:8000/inventory/scrape -H "Content-Type: application/json" -d '{"async_mode": true}'
+```
+
+### Saved Products
+Users can now save products to their account for later viewing.
+
+### Enhanced Product Cards
+- Horizontal layout with image on left
+- Rating badges
+- Direct product links
+- Compact design
+
+### Improved Intent Parsing
+- Better gender detection for fashion queries
+- Smarter clarification prompts
+- Single-prompt clarification (no re-asking)
+
+---
+
+## 5. Architecture & Troubleshooting
+
+### Service Ports
 - **Backend Port**: 8000
 - **Frontend Port**: 3000
 - **Redis Port**: 6379
 - **Ollama Port**: 11434
 
-**Common Issues:**
+### Key Directories
+```
+backend/
+├── app/
+│   ├── models/          # SQLAlchemy models
+│   ├── routers/         # API endpoints
+│   ├── services/        # Business logic
+│   │   ├── rag_service.py           # Main RAG pipeline
+│   │   ├── scraping_service.py      # Product scraping
+│   │   ├── inventory_scrape_service.py  # Bulk inventory scraping
+│   │   └── local_embedding_service.py   # Embeddings
+│   └── utils/           # Helpers & scheduler
+├── qdrant_data/         # Vector database storage
+└── main.py              # FastAPI app entry
+
+frontend/
+├── app/
+│   ├── components/      # React components
+│   └── page.tsx         # Main page
+└── lib/                 # Utilities & services
+```
+
+### Common Issues
 - `Connection refused`: Check Redis and Ollama status.
 - `Authentication Error`: Check `GOOGLE_CLIENT_ID` in `.env` and authorized redirect URIs in Google Console.
+- `Qdrant lock error`: Only one process can access local Qdrant. Restart the backend.
+- `No products found`: Some retailers block scraping. Check `/inventory/status` for details.
