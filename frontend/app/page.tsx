@@ -51,6 +51,7 @@ export default function Home() {
     messages: Array<{ role: 'user' | 'ai'; content: string; timestamp?: string }>;
     preview: string;
   }>>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
 
 
   // Load chat sessions and auth token from localStorage on mount
@@ -159,24 +160,46 @@ export default function Home() {
     loadData();
   }, []);
 
-  // Save current chat session
-  const saveCurrentChatSession = async () => {
+  // Save current chat session (creates new or updates existing)
+  const saveCurrentChatSession = async (forceNew: boolean = false) => {
     if (chatHistory.length === 0) return;
 
     const firstUserMessage = chatHistory.find(msg => msg.role === 'user');
     if (!firstUserMessage) return;
 
-    const newSession = {
-      id: Date.now().toString(),
+    // Use existing session ID or create new one
+    const sessionId = forceNew || !currentSessionId ? Date.now().toString() : currentSessionId;
+
+    const sessionData = {
+      id: sessionId,
       timestamp: new Date().toISOString(),
       messages: chatHistory.filter(msg => !msg.error),
       preview: firstUserMessage.content.slice(0, 50) + (firstUserMessage.content.length > 50 ? '...' : ''),
     };
 
-    const updatedSessions = [newSession, ...chatSessions].slice(0, 10);
-    setChatSessions(updatedSessions);
+    // Update currentSessionId if new
+    if (!currentSessionId || forceNew) {
+      setCurrentSessionId(sessionId);
+    }
+
+    // Update local state: replace existing or add new
+    setChatSessions(prev => {
+      const existingIndex = prev.findIndex(s => s.id === sessionId);
+      if (existingIndex >= 0) {
+        // Update existing session
+        const updated = [...prev];
+        updated[existingIndex] = sessionData;
+        return updated;
+      } else {
+        // Add new session at the beginning
+        return [sessionData, ...prev].slice(0, 10);
+      }
+    });
 
     // Save to localStorage always
+    const updatedSessions = chatSessions.find(s => s.id === sessionId)
+      ? chatSessions.map(s => s.id === sessionId ? sessionData : s)
+      : [sessionData, ...chatSessions].slice(0, 10);
     localStorage.setItem('chat_sessions', JSON.stringify(updatedSessions));
 
     // Also save to backend if authenticated
@@ -188,7 +211,7 @@ export default function Home() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${accessToken}`,
           },
-          body: JSON.stringify({ session: newSession }),
+          body: JSON.stringify({ session: sessionData }),
         });
       } catch (error) {
         console.log('Failed to save session to backend');
@@ -201,6 +224,7 @@ export default function Home() {
     const session = chatSessions.find(s => s.id === sessionId);
     if (session) {
       setChatHistory(session.messages as any);
+      setCurrentSessionId(sessionId);
       setAppState('results');
     }
   };
@@ -484,6 +508,12 @@ export default function Home() {
 
       setIsStreaming(false);
 
+      // Auto-save the session to backend after each successful query
+      // Use setTimeout to ensure state has updated with final message content
+      setTimeout(() => {
+        saveCurrentChatSession();
+      }, 100);
+
     } catch (error: any) {
       console.error('Search error:', error);
       setIsStreaming(false);
@@ -561,9 +591,10 @@ export default function Home() {
     if (chatHistory.length > 0) {
       saveCurrentChatSession();
     }
-    // Reset chat
+    // Reset chat and session ID for new conversation
     setChatHistory([]);
     setCurrentQuery('');
+    setCurrentSessionId(null);
     setAppState('home');
   };
 
@@ -582,6 +613,7 @@ export default function Home() {
     setAppState('home');
     setChatHistory([]);
     setCurrentQuery('');
+    setCurrentSessionId(null);
   };
 
   return (
