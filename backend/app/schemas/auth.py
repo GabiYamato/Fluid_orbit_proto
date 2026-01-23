@@ -28,10 +28,16 @@ class UserResponse(BaseModel):
     """Schema for user response."""
     id: str
     email: str
+    display_name: Optional[str] = None
     created_at: datetime
     
     class Config:
         from_attributes = True
+
+
+class UserProfileUpdate(BaseModel):
+    """Schema for updating user profile."""
+    display_name: Optional[str] = None
 
 
 class TokenResponse(BaseModel):

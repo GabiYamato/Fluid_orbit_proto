@@ -14,6 +14,7 @@ from app.schemas.auth import (
     UserResponse,
     TokenResponse,
     GoogleAuthRequest,
+    UserProfileUpdate,
 )
 from app.utils.jwt import create_access_token, create_refresh_token, verify_token, get_current_user
 from app.config import get_settings
@@ -400,6 +401,22 @@ async def get_current_user_info(
     current_user: User = Depends(get_current_user),
 ):
     """Get current user information."""
+    return current_user
+
+
+@router.put("/profile", response_model=UserResponse)
+async def update_user_profile(
+    profile_data: UserProfileUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update user profile (display name, etc.)."""
+    if profile_data.display_name is not None:
+        current_user.display_name = profile_data.display_name.strip() if profile_data.display_name else None
+    
+    await db.commit()
+    await db.refresh(current_user)
+    
     return current_user
 
 

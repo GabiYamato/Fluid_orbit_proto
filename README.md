@@ -22,7 +22,7 @@ A next-generation RAG-based product recommendation engine that helps you make sm
 
 ## ✨ Latest Features (v2.26-v2.30)
 
-- **🧠 Jina Embeddings v4**: Local semantic search with 1024-dim embeddings (no API key needed)
+- **🧠 Local Embeddings**: Semantic search with `all-MiniLM-L6-v2` (no API key needed)
 - **📊 Query Classification**: Automatically detects query intent (best_product, deep_dive, spec_lookup, etc.)
 - **📝 Centralized Logging**: Console + rotating file logs for debugging
 - **💾 Persistent Chat**: Database-backed chat sessions (survives restarts)
@@ -80,23 +80,27 @@ FLU/
 
 ---
 
-## 🧠 RAG Pipeline
+## 🧠 Search & Retrieval Architecture
+![Retrieval Pipeline](docs/images/retrieval_pipeline.png)
 
-```
-User Query
-   ↓
-Intent Parser (classify query type)
-   ↓
-Query Refinement (with chat history)
-   ↓
-Jina v4 Embedding (1024-dim, local)
-   ↓
-Qdrant Vector Search (semantic retrieval)
-   ↓
-Scoring & Reranking
-   ↓
-LLM Response (Gemini/OpenAI/Ollama)
-```
+The system uses a sophisticated 3-Level Escalation strategy to balance speed and coverage:
+
+### 1. Level 1: Memory (Fast Path)
+*   **Vector DB (Qdrant)** is queried first using local embeddings (`all-MiniLM-L6-v2`).
+*   If we have >3 high-quality results, they are returned instantly (< 200ms).
+
+### 2. Level 2: Targeted Discovery (Parallel)
+*   Reference: `ScrapingService`
+*   Triggered if Level 1 has insufficient results.
+*   Concurrently scrapes **35+ fashion retailers** (H&M, ASOS, Express, etc.) and tests **Google Shopping (SerpAPI)**.
+*   Uses smart batching (10 stores concurrently) to maximize speed without rate limits.
+
+### 3. Level 3: Deep Web (Fallback)
+*   **Web Crawler** (DuckDuckGo Discovery) is launched if specific retailer searches fail.
+*   Scrapes generic e-commerce pages for product data (JSON-LD, meta tags).
+
+### 🔄 Feedback Loop
+**Critical:** Every single product found in Level 2 or 3 is **automatically indexed** back into the Qdrant Vector DB. The system gets smarter and faster with every query.
 
 ### Query Types
 - **best_product**: "best wireless earbuds under $100"

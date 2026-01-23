@@ -19,6 +19,9 @@ class User(Base):
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     google_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
     
+    # Profile info
+    display_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    
     # Rate limiting
     rate_limit_count: Mapped[int] = mapped_column(Integer, default=0)
     rate_limit_reset: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
