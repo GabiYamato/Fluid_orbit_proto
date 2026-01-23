@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import ProductCard, { ProductCardSkeleton } from './ProductCard';
 import Sidebar from './Sidebar';
 import ProfilePopup from './ProfilePopup';
@@ -11,6 +11,7 @@ import EmailUpdatePopup from './EmailUpdatePopup';
 import PasswordUpdatePopup from './PasswordUpdatePopup';
 import HelpPopup from './HelpPopup';
 import ClarificationWidget from './ClarificationWidget';
+import { saveProduct, removeSavedProduct, SaveProductRequest } from '../../lib/savedProductsService';
 
 interface ResultsPageProps {
   onSearch: (query: string, options?: { hideUserMessage?: boolean }) => void;
@@ -101,13 +102,94 @@ export default function ResultsPage({
   const [expandedProducts, setExpandedProducts] = useState<Record<number, number>>({});
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // Saved products state - maps affiliate_url to saved product ID
+  const [savedProductIds, setSavedProductIds] = useState<Record<string, string>>({});
+  const [saveNotification, setSaveNotification] = useState<string | null>(null);
+
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory]);
 
+  // Clear notification after 3 seconds
+  useEffect(() => {
+    if (saveNotification) {
+      const timer = setTimeout(() => setSaveNotification(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [saveNotification]);
+
+  // Handle saving a product
+  const handleSaveProduct = useCallback(async (product: any) => {
+    try {
+      const productData: SaveProductRequest = {
+        product_id: product.id,
+        title: product.title || product.name || 'Unknown Product',
+        description: product.description,
+        price: product.price,
+        rating: product.rating,
+        review_count: product.review_count,
+        image_url: product.image_url || product.image,
+        affiliate_url: product.affiliate_url || product.link || product.url || '',
+        source: product.source,
+        category: product.category,
+        brand: product.brand,
+      };
+
+      const saved = await saveProduct(productData);
+      setSavedProductIds(prev => ({
+        ...prev,
+        [productData.affiliate_url]: saved.id
+      }));
+      setSaveNotification(`Saved: ${productData.title.slice(0, 30)}...`);
+    } catch (error: any) {
+      console.error('Save product error:', error);
+      setSaveNotification(error.message || 'Failed to save product');
+    }
+  }, []);
+
+  // Handle removing a saved product
+  const handleUnsaveProduct = useCallback(async (savedProductId: string) => {
+    try {
+      await removeSavedProduct(savedProductId);
+      setSavedProductIds(prev => {
+        const updated = { ...prev };
+        // Find and remove the entry with this saved ID
+        for (const [url, id] of Object.entries(updated)) {
+          if (id === savedProductId) {
+            delete updated[url];
+            break;
+          }
+        }
+        return updated;
+      });
+      setSaveNotification('Product removed from saved');
+    } catch (error: any) {
+      console.error('Unsave product error:', error);
+      setSaveNotification(error.message || 'Failed to remove product');
+    }
+  }, []);
+
+  // Check if a product is saved by its URL
+  const isProductSaved = useCallback((product: any): { isSaved: boolean; savedId?: string } => {
+    const url = product.affiliate_url || product.link || product.url || '';
+    const savedId = savedProductIds[url];
+    return { isSaved: !!savedId, savedId };
+  }, [savedProductIds]);
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col md:flex-row transition-colors duration-300">
+      {/* Save Notification Toast */}
+      {saveNotification && (
+        <motion.div
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 50 }}
+          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-black dark:bg-white text-white dark:text-black px-4 py-2 rounded-lg shadow-lg text-sm font-medium"
+        >
+          {saveNotification}
+        </motion.div>
+      )}
       {/* Sidebar - Desktop Only */}
       <div className="hidden md:block">
         <Sidebar
@@ -517,18 +599,25 @@ export default function ResultsPage({
                             Found {message.products.length} products
                           </p>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {visibleProducts.map((product: any, pIndex: number) => (
-                              <div
-                                key={`${product.id || 'product'}-${pIndex}`}
-                                className="col-span-1"
-                              >
-                                <ProductCard
-                                  product={product}
-                                  index={pIndex}
-                                  size="small"
-                                />
-                              </div>
-                            ))}
+                            {visibleProducts.map((product: any, pIndex: number) => {
+                              const { isSaved, savedId } = isProductSaved(product);
+                              return (
+                                <div
+                                  key={`${product.id || 'product'}-${pIndex}`}
+                                  className="col-span-1"
+                                >
+                                  <ProductCard
+                                    product={product}
+                                    index={pIndex}
+                                    size="small"
+                                    onSave={handleSaveProduct}
+                                    onUnsave={handleUnsaveProduct}
+                                    isSaved={isSaved}
+                                    savedProductId={savedId}
+                                  />
+                                </div>
+                              );
+                            })}
                           </div>
                           {hasMore ? (
                             <motion.button
