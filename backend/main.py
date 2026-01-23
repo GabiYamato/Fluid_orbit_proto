@@ -5,7 +5,7 @@ import logging
 
 from app.config import get_settings
 from app.database import init_db
-from app.routers import auth_router, query_router, history_router
+from app.routers import auth_router, query_router, history_router, saved_products_router, inventory_router
 from app.utils.logging_config import setup_logging
 
 settings = get_settings()
@@ -34,7 +34,7 @@ async def lifespan(app: FastAPI):
     
     # Start scheduler for periodic scraping
     from app.utils.scheduler import setup_scheduler, shutdown_scheduler
-    setup_scheduler(run_on_start=True)  # Scrapes on startup
+    # setup_scheduler(run_on_start=True)  # Scrapes on startup
     
     yield
     
@@ -64,6 +64,8 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(query_router)
 app.include_router(history_router)
+app.include_router(saved_products_router)
+app.include_router(inventory_router)
 
 
 @app.get("/")

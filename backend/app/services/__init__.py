@@ -7,6 +7,7 @@ from .chunking_service import ChunkingService
 from .local_embedding_service import LocalEmbeddingService
 from .otp_service import OTPService
 from .intent_parser_service import IntentParserService
+from .inventory_scrape_service import InventoryScrapeService, get_inventory_service
 
 __all__ = [
     "AuthService",
@@ -18,4 +19,6 @@ __all__ = [
     "LocalEmbeddingService",
     "OTPService",
     "IntentParserService",
+    "InventoryScrapeService",
+    "get_inventory_service",
 ]

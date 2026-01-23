@@ -311,21 +311,32 @@ def setup_scheduler(run_on_start: bool = False):
         replace_existing=True,
         max_instances=1,  # Prevent overlapping runs
     )
+    
+    # Add inventory (fashion retailers) scraping job - runs every 4 hours
+    from app.services.inventory_scrape_service import run_inventory_scrape_job
+    scheduler.add_job(
+        run_inventory_scrape_job,
+        trigger=IntervalTrigger(hours=4),
+        id="inventory_scrape",
+        name="Fashion Inventory Scraping (35+ Retailers)",
+        replace_existing=True,
+        max_instances=1,
+    )
 
     logger.info("📅 Scheduler configured:")
-    logger.info("   - Job: Electronics Product Scraping")
-    logger.info("   - Interval: Every 6 hours")
-    logger.info("   - Next run: In 6 hours (unless run_on_start=True)")
+    logger.info("   - Job: Electronics Product Scraping (every 6 hours)")
+    logger.info("   - Job: Fashion Inventory Scraping (every 4 hours)")
+    logger.info("   - Next run: Based on interval (unless run_on_start=True)")
 
     if run_on_start:
-        # Schedule immediate run
+        # Schedule immediate run of inventory scrape
         scheduler.add_job(
-            run_electronics_scrape_job,
-            id="electronics_scrape_initial",
-            name="Initial Electronics Scrape",
+            run_inventory_scrape_job,
+            id="inventory_scrape_initial",
+            name="Initial Inventory Scrape",
             replace_existing=True,
         )
-        logger.info("   - Initial scrape: Queued for immediate execution")
+        logger.info("   - Initial inventory scrape: Queued for immediate execution")
 
     scheduler.start()
     logger.info("✅ Scheduler started successfully")
