@@ -76,19 +76,31 @@ class ScoringService:
         if not products:
             return []
         
-        # STEP 0: Filter out products without a valid link
-        # Products without links are not shoppable and should be excluded
-        products_with_links = []
+        # STEP 0: Filter out products without BOTH a valid link AND a valid price
+        # Products without links are not shoppable, products without prices can't be compared
+        valid_products = []
         for product in products:
+            # Check for valid link (must be http/https URL)
             link = product.get("affiliate_url") or product.get("link") or product.get("url")
-            if link and isinstance(link, str) and link.strip() and link.startswith("http"):
-                products_with_links.append(product)
+            has_valid_link = link and isinstance(link, str) and link.strip() and link.startswith("http")
+            
+            # Check for valid price (must be > 0)
+            price = product.get("price", 0)
+            try:
+                price_float = float(price) if price else 0
+            except (ValueError, TypeError):
+                price_float = 0
+            has_valid_price = price_float > 0
+            
+            # Only include products with BOTH valid link AND valid price
+            if has_valid_link and has_valid_price:
+                valid_products.append(product)
         
-        if not products_with_links:
-            # If all products were filtered out, fall back to original (shouldn't happen normally)
-            products_with_links = products
+        if not valid_products:
+            # If all products were filtered out, log warning (don't fallback - strict mode)
+            return []
         
-        products = products_with_links
+        products = valid_products
         
         # Extract gender from features if present
         user_gender = None
@@ -196,7 +208,7 @@ class ScoringService:
         Lower price = higher score, with budget consideration.
         """
         if not price or price <= 0:
-            return 50  # Neutral if no price
+            return 0  # Zero score if no price - this product should have been filtered out
         
         # If budget specified, score relative to budget
         if budget_max and budget_max > 0:

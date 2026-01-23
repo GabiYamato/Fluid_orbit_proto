@@ -74,13 +74,39 @@ export default function ClarificationWidget({
         if (onSkip) setTimeout(onSkip, 300);
     };
 
-    // Build the status line showing current selections
+    // Build the status line showing ALL current selections (not just hardcoded ones)
     const getStatusLine = () => {
         const parts: string[] = [];
-        if (responses.budget) parts.push(`Up to $${responses.budget}`);
-        if (responses.gender) parts.push(responses.gender);
-        if (responses.size) parts.push(`Size ${responses.size}`);
-        if (responses.color) parts.push(responses.color);
+
+        // Iterate through all responses and format them appropriately
+        Object.entries(responses).forEach(([key, value]) => {
+            if (value === undefined || value === null || value === '') return;
+
+            // Format the value based on key and type
+            if (key === 'budget' && typeof value === 'number') {
+                parts.push(`Up to $${value}`);
+            } else if (key === 'size') {
+                parts.push(`Size ${value}`);
+            } else if (Array.isArray(value)) {
+                // For checkbox groups, join the values
+                if (value.length > 0) {
+                    parts.push(value.join(', '));
+                }
+            } else if (typeof value === 'string') {
+                // Capitalize first letter for display
+                parts.push(value.charAt(0).toUpperCase() + value.slice(1));
+            } else {
+                parts.push(String(value));
+            }
+        });
+
+        // Also include custom inputs
+        Object.entries(customInputs).forEach(([field, value]) => {
+            if (value && showCustomInput[field]) {
+                parts.push(value);
+            }
+        });
+
         return parts.length > 0 ? parts.join(' • ') : 'Selections saved';
     };
 

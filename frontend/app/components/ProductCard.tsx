@@ -211,23 +211,7 @@ export default function ProductCard({
             </div>
           )}
 
-          {/* Carousel arrows */}
-          <button
-            onClick={(e) => { e.stopPropagation(); }}
-            className="absolute left-1 top-1/2 -translate-y-1/2 w-5 h-5 bg-white/80 dark:bg-gray-800/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
-          >
-            <svg className="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); }}
-            className="absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 bg-white/80 dark:bg-gray-800/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
-          >
-            <svg className="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
+
 
           {/* Save button */}
           {(onSave || onUnsave) && (
@@ -235,8 +219,8 @@ export default function ProductCard({
               onClick={handleSaveClick}
               disabled={saving}
               className={`absolute top-1 right-1 w-7 h-7 rounded-full flex items-center justify-center transition-all shadow-sm ${localSaved
-                  ? 'bg-orange-500 text-white'
-                  : 'bg-white/90 dark:bg-gray-800/90 text-gray-400 hover:text-orange-500 opacity-0 group-hover:opacity-100'
+                ? 'bg-orange-500 text-white'
+                : 'bg-white/90 dark:bg-gray-800/90 text-gray-400 hover:text-orange-500 opacity-0 group-hover:opacity-100'
                 } ${saving ? 'animate-pulse' : ''}`}
               title={localSaved ? 'Remove from saved' : 'Save for later'}
             >
@@ -324,23 +308,7 @@ export default function ProductCard({
           </div>
         )}
 
-        {/* Carousel arrows */}
-        <button
-          onClick={(e) => { e.stopPropagation(); }}
-          className="absolute left-1 top-1/2 -translate-y-1/2 w-5 h-5 bg-white/80 dark:bg-gray-800/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
-        >
-          <svg className="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); }}
-          className="absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 bg-white/80 dark:bg-gray-800/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
-        >
-          <svg className="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
+
 
         {/* Save button */}
         {(onSave || onUnsave) && (
