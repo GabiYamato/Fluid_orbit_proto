@@ -22,7 +22,7 @@ interface ChatSession {
 interface HomePageProps {
   username?: string;
   email?: string;
-  onSearch: (query: string) => void;
+  onSearch: (query: string, options?: { hideUserMessage?: boolean }) => void;
   onLogout?: () => void;
   onSettingsClick?: () => void;
   onNameUpdate?: (name: string) => void;
@@ -372,14 +372,14 @@ export default function HomePage({
         <div className="px-4 pb-6 sm:px-8 sm:pb-8 md:pb-12">
           <div className="max-w-3xl mx-auto">
             <form onSubmit={handleSubmit}>
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-4 sm:p-6 md:p-8 lg:p-12 flex items-center border-gray-200 dark:border-gray-700 border shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-colors duration-300">
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-[26px] p-2 px-4 flex items-center border-gray-200 dark:border-gray-700 border shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-colors duration-300">
                 <textarea
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="flex-1 bg-transparent border-none focus:ring-0 resize-none text-base sm:text-lg text-gray-700 dark:text-gray-300 placeholder:text-gray-500 dark:placeholder:text-gray-400 tracking-wide outline-none transition-colors duration-300 max-h-32 overflow-y-auto"
+                  className="flex-1 bg-transparent border-none focus:ring-0 resize-none text-base text-gray-700 dark:text-gray-300 placeholder:text-gray-500 dark:placeholder:text-gray-400 tracking-wide outline-none transition-colors duration-300 max-h-32 overflow-y-auto py-2"
                   placeholder="Shop Anything..."
-                  rows={3}
-                  style={{ minHeight: '2.5rem' }}
+                  rows={1}
+                  style={{ minHeight: '1.5rem' }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
@@ -389,9 +389,9 @@ export default function HomePage({
                 />
                 <button
                   type="submit"
-                  className="ml-2 sm:ml-4 p-2 sm:p-3 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors flex-shrink-0"
+                  className="ml-2 p-2 bg-black dark:bg-white text-white dark:text-black rounded-full hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors flex-shrink-0"
                 >
-                  <ArrowUpIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <ArrowUpIcon className="h-5 w-5" />
                 </button>
               </div>
             </form>
@@ -431,13 +431,13 @@ export default function HomePage({
         {/* Bottom Input Area */}
         <div className="px-4 pb-6">
           <form onSubmit={handleSubmit}>
-            <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-4 flex items-center border border-gray-200 dark:border-gray-700">
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-[26px] p-2 px-4 flex items-center border border-gray-200 dark:border-gray-700 shadow-sm">
               <textarea
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-1 bg-transparent border-none resize-none text-base text-gray-700 dark:text-gray-300 placeholder:text-gray-500 outline-none"
+                className="flex-1 bg-transparent border-none resize-none text-base text-gray-700 dark:text-gray-300 placeholder:text-gray-500 outline-none py-2"
                 placeholder="Shop Anything..."
-                rows={2}
+                rows={1}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
@@ -447,7 +447,7 @@ export default function HomePage({
               />
               <button
                 type="submit"
-                className="ml-2 p-2 bg-black dark:bg-white text-white dark:text-black rounded-lg"
+                className="ml-2 p-2 bg-black dark:bg-white text-white dark:text-black rounded-full"
               >
                 <ArrowUpIcon className="h-4 w-4" />
               </button>

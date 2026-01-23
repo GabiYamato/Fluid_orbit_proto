@@ -13,6 +13,7 @@ import SettingsPage from './components/SettingsPage';
 import PersonalizationPage from './components/PersonalizationPage';
 import HelpPage from './components/HelpPage';
 import HistoryPage from './components/HistoryPage';
+import ConversationSearchPopup from './components/ConversationSearchPopup';
 
 type AppState = 'auth' | 'loading' | 'skeleton' | 'home' | 'results' | 'settings' | 'personalization' | 'help' | 'history';
 
@@ -28,6 +29,7 @@ export default function Home() {
   const [error, setError] = useState<string>('');
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [showSearchPopup, setShowSearchPopup] = useState(false);
   const [chatHistory, setChatHistory] = useState<Array<{
     role: 'user' | 'ai';
     content: string;
@@ -54,7 +56,45 @@ export default function Home() {
   // Load chat sessions and auth token from localStorage on mount
   useEffect(() => {
     const loadData = async () => {
-      // Check for saved auth
+      // Check for Google OAuth callback token in URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const oauthToken = urlParams.get('access_token');
+
+      if (oauthToken) {
+        // Store the token from Google OAuth callback
+        localStorage.setItem('access_token', oauthToken);
+        setAccessToken(oauthToken);
+
+        // Clean up the URL (remove the token from query params)
+        window.history.replaceState({}, document.title, window.location.pathname);
+
+        // Fetch user info with the new token
+        try {
+          const response = await fetch(`${API_URL}/auth/me`, {
+            headers: { 'Authorization': `Bearer ${oauthToken}` },
+          });
+          if (response.ok) {
+            const userData = await response.json();
+            setEmail(userData.email || 'user@example.com');
+            localStorage.setItem('user_email', userData.email || '');
+
+            // Load display name from backend (server is source of truth)
+            if (userData.display_name) {
+              setUsername(userData.display_name);
+              setDisplayName(userData.display_name);
+              localStorage.setItem('user_custom_name', userData.display_name);
+            }
+          }
+        } catch (error) {
+          console.log('Could not fetch user info:', error);
+        }
+
+        // Navigate to home
+        setAppState('home');
+        return;
+      }
+
+      // Check for saved auth in localStorage
       const token = localStorage.getItem('access_token');
       const savedEmail = localStorage.getItem('user_email');
       const savedName = localStorage.getItem('user_custom_name');
@@ -62,9 +102,27 @@ export default function Home() {
       if (token) {
         setAccessToken(token);
         setEmail(savedEmail || 'user@example.com');
+        // Initially use localStorage, then update from backend
         setUsername(savedName || '');
         setDisplayName(savedName || '');
         setAppState('home');
+
+        // Fetch user info from backend (source of truth for display_name)
+        try {
+          const userResponse = await fetch(`${API_URL}/auth/me`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+          });
+          if (userResponse.ok) {
+            const userData = await userResponse.json();
+            if (userData.display_name) {
+              setUsername(userData.display_name);
+              setDisplayName(userData.display_name);
+              localStorage.setItem('user_custom_name', userData.display_name);
+            }
+          }
+        } catch (error) {
+          console.log('Could not fetch user info from backend');
+        }
 
         // Load sessions from backend for authenticated users
         try {
@@ -89,6 +147,12 @@ export default function Home() {
         } catch (error) {
           console.error('Failed to load chat sessions:', error);
         }
+      }
+
+      // Load saved sidebar state
+      const savedSidebar = localStorage.getItem('sidebar_expanded');
+      if (savedSidebar !== null) {
+        setSidebarExpanded(savedSidebar === 'true');
       }
     };
 
@@ -246,8 +310,8 @@ export default function Home() {
   const handleGoogleAuth = async () => {
     try {
       setError('');
-      // Redirect to backend Google OAuth
-      window.location.href = `${API_URL}/auth/google`;
+      // Redirect to backend Google OAuth login endpoint
+      window.location.href = `${API_URL}/auth/google/login`;
     } catch (err: any) {
       setError(err.message || 'Google sign-in failed');
       console.error('Google auth error:', err);
@@ -284,14 +348,16 @@ export default function Home() {
     setChatHistory([]);
   };
 
-  const handleSearch = async (query: string) => {
+  const handleSearch = async (query: string, options?: { hideUserMessage?: boolean }) => {
     try {
       setCurrentQuery(query);
       setIsStreaming(true);
 
-      // Add user message to history immediately
-      const userMessage = { role: 'user' as const, content: query, timestamp: new Date().toISOString() };
-      setChatHistory(prev => [...prev, userMessage]);
+      // Add user message to history (unless hidden for clarification responses)
+      if (!options?.hideUserMessage) {
+        const userMessage = { role: 'user' as const, content: query, timestamp: new Date().toISOString() };
+        setChatHistory(prev => [...prev, userMessage]);
+      }
 
       // Show results page immediately
       setAppState('results');
@@ -453,10 +519,26 @@ export default function Home() {
     setAppState('personalization');
   };
 
-  const handleNameUpdate = (name: string) => {
+  const handleNameUpdate = async (name: string) => {
     setDisplayName(name);
     setUsername(name);
     localStorage.setItem('user_custom_name', name);
+
+    // Persist to backend if authenticated
+    if (accessToken) {
+      try {
+        await fetch(`${API_URL}/auth/profile`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ display_name: name }),
+        });
+      } catch (error) {
+        console.error('Failed to save name to backend:', error);
+      }
+    }
   };
 
   const handleEmailUpdate = (newEmail: string) => {
@@ -486,11 +568,13 @@ export default function Home() {
   };
 
   const handleHistoryClick = () => {
-    setAppState('history');
+    setShowSearchPopup(true);
   };
 
   const toggleSidebar = () => {
-    setSidebarExpanded(!sidebarExpanded);
+    const newState = !sidebarExpanded;
+    setSidebarExpanded(newState);
+    localStorage.setItem('sidebar_expanded', String(newState));
   };
 
   const handleLogoClick = () => {
@@ -501,159 +585,172 @@ export default function Home() {
   };
 
   return (
-    <AnimatePresence mode="wait">
-      {appState === 'auth' && (
-        <div key="auth" className="flex min-h-screen">
-          {/* Left side - Gradient Background */}
-          <div className="hidden lg:flex lg:w-1/2 relative">
-            <GradientBackground />
-          </div>
+    <>
+      <AnimatePresence mode="wait">
+        {appState === 'auth' && (
+          <div key="auth" className="flex min-h-screen">
+            {/* Left side - Gradient Background */}
+            <div className="hidden lg:flex lg:w-1/2 relative">
+              <GradientBackground />
+            </div>
 
-          {/* Right side - Auth Forms */}
-          <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
-            {error && (
-              <div className="absolute top-4 right-4 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-400 px-4 py-3 rounded">
-                {error}
-              </div>
-            )}
-            <AnimatePresence mode="wait">
-              {isSignUp ? (
-                <SignUpForm
-                  key="signup"
-                  onToggle={() => setIsSignUp(false)}
-                  onSubmit={handleSignUp}
-                  onGoogleAuth={handleGoogleAuth}
-                />
-              ) : (
-                <SignInForm
-                  key="signin"
-                  onToggle={() => setIsSignUp(true)}
-                  onSubmit={handleSignIn}
-                  onGoogleAuth={handleGoogleAuth}
-                />
+            {/* Right side - Auth Forms */}
+            <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
+              {error && (
+                <div className="absolute top-4 right-4 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-400 px-4 py-3 rounded">
+                  {error}
+                </div>
               )}
-            </AnimatePresence>
+              <AnimatePresence mode="wait">
+                {isSignUp ? (
+                  <SignUpForm
+                    key="signup"
+                    onToggle={() => setIsSignUp(false)}
+                    onSubmit={handleSignUp}
+                    onGoogleAuth={handleGoogleAuth}
+                  />
+                ) : (
+                  <SignInForm
+                    key="signin"
+                    onToggle={() => setIsSignUp(true)}
+                    onSubmit={handleSignIn}
+                    onGoogleAuth={handleGoogleAuth}
+                  />
+                )}
+              </AnimatePresence>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {appState === 'loading' && <LoadingScreen key="loading" />}
+        {appState === 'loading' && <LoadingScreen key="loading" />}
 
-      {appState === 'skeleton' && <SkeletonLoader key="skeleton" />}
+        {appState === 'skeleton' && <SkeletonLoader key="skeleton" />}
 
-      {appState === 'home' && (
-        <HomePage
-          key="home"
-          onSearch={handleSearch}
-          username={displayName}
-          email={email}
-          onLogout={handleLogout}
-          onSettingsClick={handleSettingsClick}
-          onNameUpdate={handleNameUpdate}
-          onPersonalizationClick={handlePersonalizationClick}
-          onHelpClick={handleHelpClick}
-          onEmailUpdate={handleEmailUpdate}
-          onNewChat={handleNewChat}
-          onHistoryClick={handleHistoryClick}
-          onLogoClick={handleLogoClick}
-          chatSessions={chatSessions}
-          onRestoreSession={(sessionId) => {
-            restoreChatSession(sessionId);
-            setAppState('results');
-          }}
-          onDeleteSession={deleteChatSession}
-          sidebarExpanded={sidebarExpanded}
-          onToggleSidebar={toggleSidebar}
-        />
-      )}
+        {appState === 'home' && (
+          <HomePage
+            key="home"
+            onSearch={handleSearch}
+            username={displayName}
+            email={email}
+            onLogout={handleLogout}
+            onSettingsClick={handleSettingsClick}
+            onNameUpdate={handleNameUpdate}
+            onPersonalizationClick={handlePersonalizationClick}
+            onHelpClick={handleHelpClick}
+            onEmailUpdate={handleEmailUpdate}
+            onNewChat={handleNewChat}
+            onHistoryClick={handleHistoryClick}
+            onLogoClick={handleLogoClick}
+            chatSessions={chatSessions}
+            onRestoreSession={(sessionId) => {
+              restoreChatSession(sessionId);
+              setAppState('results');
+            }}
+            onDeleteSession={deleteChatSession}
+            sidebarExpanded={sidebarExpanded}
+            onToggleSidebar={toggleSidebar}
+          />
+        )}
 
-      {appState === 'results' && (
-        <ResultsPage
-          key="results"
-          onSearch={handleSearch}
-          username={displayName}
-          email={email}
-          onLogout={handleLogout}
-          onHomeClick={handleHomeClick}
-          onSettingsClick={handleSettingsClick}
-          onPersonalizationClick={handlePersonalizationClick}
-          onHelpClick={handleHelpClick}
-          onEmailUpdate={handleEmailUpdate}
-          onNewChat={handleNewChat}
-          onHistoryClick={handleHistoryClick}
-          sidebarExpanded={sidebarExpanded}
-          onToggleSidebar={toggleSidebar}
-          chatHistory={chatHistory}
-          searchQuery={currentQuery}
-          onLogoClick={handleLogoClick}
-          chatSessions={chatSessions}
-          onRestoreSession={restoreChatSession}
-          onDeleteSession={deleteChatSession}
-          isStreaming={isStreaming}
-        />
-      )}
+        {appState === 'results' && (
+          <ResultsPage
+            key="results"
+            onSearch={handleSearch}
+            username={displayName}
+            email={email}
+            onLogout={handleLogout}
+            onHomeClick={handleHomeClick}
+            onSettingsClick={handleSettingsClick}
+            onPersonalizationClick={handlePersonalizationClick}
+            onHelpClick={handleHelpClick}
+            onEmailUpdate={handleEmailUpdate}
+            onNewChat={handleNewChat}
+            onHistoryClick={handleHistoryClick}
+            sidebarExpanded={sidebarExpanded}
+            onToggleSidebar={toggleSidebar}
+            chatHistory={chatHistory}
+            searchQuery={currentQuery}
+            onLogoClick={handleLogoClick}
+            chatSessions={chatSessions}
+            onRestoreSession={restoreChatSession}
+            onDeleteSession={deleteChatSession}
+            isStreaming={isStreaming}
+          />
+        )}
 
-      {appState === 'settings' && (
-        <SettingsPage
-          key="settings"
-          username={displayName}
-          email={email}
-          onHomeClick={handleHomeClick}
-          onLogout={handleLogout}
-          onLogoClick={handleLogoClick}
-          chatSessions={chatSessions}
-          onRestoreSession={restoreChatSession}
-          onDeleteSession={deleteChatSession}
-        />
-      )}
+        {appState === 'settings' && (
+          <SettingsPage
+            key="settings"
+            username={displayName}
+            email={email}
+            onHomeClick={handleHomeClick}
+            onLogout={handleLogout}
+            onLogoClick={handleLogoClick}
+            chatSessions={chatSessions}
+            onRestoreSession={restoreChatSession}
+            onDeleteSession={deleteChatSession}
+          />
+        )}
 
-      {appState === 'personalization' && (
-        <PersonalizationPage
-          key="personalization"
-          username={displayName}
-          email={email}
-          onHomeClick={handleHomeClick}
-          onSettingsClick={handleSettingsClick}
-          onSave={handlePersonalizationSave}
-          onLogoClick={handleLogoClick}
-          chatSessions={chatSessions}
-          onRestoreSession={restoreChatSession}
-          onDeleteSession={deleteChatSession}
-        />
-      )}
+        {appState === 'personalization' && (
+          <PersonalizationPage
+            key="personalization"
+            username={displayName}
+            email={email}
+            onHomeClick={handleHomeClick}
+            onSettingsClick={handleSettingsClick}
+            onSave={handlePersonalizationSave}
+            onLogoClick={handleLogoClick}
+            chatSessions={chatSessions}
+            onRestoreSession={restoreChatSession}
+            onDeleteSession={deleteChatSession}
+          />
+        )}
 
-      {appState === 'help' && (
-        <HelpPage
-          key="help"
-          onHomeClick={handleHomeClick}
-          onSettingsClick={handleSettingsClick}
-          onLogoClick={handleLogoClick}
-          chatSessions={chatSessions}
-          onRestoreSession={restoreChatSession}
-          onDeleteSession={deleteChatSession}
-        />
-      )}
+        {appState === 'help' && (
+          <HelpPage
+            key="help"
+            onHomeClick={handleHomeClick}
+            onSettingsClick={handleSettingsClick}
+            onLogoClick={handleLogoClick}
+            chatSessions={chatSessions}
+            onRestoreSession={restoreChatSession}
+            onDeleteSession={deleteChatSession}
+          />
+        )}
 
-      {appState === 'history' && (
-        <HistoryPage
-          key="history"
-          username={displayName}
-          email={email}
-          chatSessions={chatSessions}
-          onHomeClick={handleHomeClick}
-          onSettingsClick={handleSettingsClick}
-          onNewChat={handleNewChat}
-          onRestoreSession={(sessionId) => {
-            restoreChatSession(sessionId);
-            setAppState('results');
-          }}
-          onDeleteSession={deleteChatSession}
-          onLogout={handleLogout}
-          onLogoClick={handleLogoClick}
-          sidebarExpanded={sidebarExpanded}
-          onToggleSidebar={toggleSidebar}
-        />
-      )}
-    </AnimatePresence>
+        {appState === 'history' && (
+          <HistoryPage
+            key="history"
+            username={displayName}
+            email={email}
+            chatSessions={chatSessions}
+            onHomeClick={handleHomeClick}
+            onSettingsClick={handleSettingsClick}
+            onNewChat={handleNewChat}
+            onRestoreSession={(sessionId) => {
+              restoreChatSession(sessionId);
+              setAppState('results');
+            }}
+            onDeleteSession={deleteChatSession}
+            onLogout={handleLogout}
+            onLogoClick={handleLogoClick}
+            sidebarExpanded={sidebarExpanded}
+            onToggleSidebar={toggleSidebar}
+          />
+        )}
+      </AnimatePresence>
+
+      <ConversationSearchPopup
+        isOpen={showSearchPopup}
+        onClose={() => setShowSearchPopup(false)}
+        sessions={chatSessions}
+        onRestoreSession={(sessionId) => {
+          restoreChatSession(sessionId);
+          setAppState('results');
+        }}
+        onDeleteSession={deleteChatSession}
+      />
+    </>
   );
 }

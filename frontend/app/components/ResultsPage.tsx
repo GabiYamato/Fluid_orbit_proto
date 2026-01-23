@@ -3,7 +3,6 @@
 import { motion } from 'framer-motion';
 import { useState, useRef, useEffect } from 'react';
 import ProductCard, { ProductCardSkeleton } from './ProductCard';
-import SearchBar from './SearchBar';
 import Sidebar from './Sidebar';
 import ProfilePopup from './ProfilePopup';
 import PersonalizationPopup from './PersonalizationPopup';
@@ -14,7 +13,7 @@ import HelpPopup from './HelpPopup';
 import ClarificationWidget from './ClarificationWidget';
 
 interface ResultsPageProps {
-  onSearch: (query: string) => void;
+  onSearch: (query: string, options?: { hideUserMessage?: boolean }) => void;
   username?: string;
   email?: string;
   onLogout?: () => void;
@@ -53,6 +52,24 @@ interface ResultsPageProps {
   isStreaming?: boolean;
 }
 
+const ArrowUpIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    {...props}
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="m5 12 7-7 7 7" />
+    <path d="M12 19V5" />
+  </svg>
+);
+
 export default function ResultsPage({
   onSearch,
   username = 'ENUID',
@@ -81,7 +98,7 @@ export default function ResultsPage({
   const [showEmailUpdate, setShowEmailUpdate] = useState(false);
   const [showPasswordUpdate, setShowPasswordUpdate] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
-  const [expandedProducts, setExpandedProducts] = useState<Record<number, boolean>>({});
+  const [expandedProducts, setExpandedProducts] = useState<Record<number, number>>({});
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new messages arrive
@@ -143,6 +160,8 @@ export default function ResultsPage({
           </button>
         </div>
       </nav>
+
+
 
       {/* Profile Popup */}
       <ProfilePopup
@@ -292,18 +311,18 @@ export default function ResultsPage({
           damping: 20,
           delay: 0.1
         }}
-        className="fixed bottom-24 md:bottom-8 left-1/2 md:left-[calc(50%+2.5rem)] -translate-x-1/2 z-30 w-full max-w-2xl px-4 md:px-0"
+        className="fixed bottom-12 md:bottom-8 left-1/2 md:left-[calc(50%+2.5rem)] -translate-x-1/2 z-30 w-full max-w-[40rem] px-4 md:px-0"
       >
         <motion.div
-          whileHover={{ scale: 1.02, y: -2 }}
+          whileHover={{ scale: 1.01 }}
           transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-          className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border-2 border-gray-200 dark:border-gray-700 overflow-hidden backdrop-blur-lg bg-opacity-95 dark:bg-opacity-95 focus-within:border-black dark:focus-within:border-white transition-colors duration-200"
+          className="bg-white dark:bg-gray-800 rounded-[26px] shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden backdrop-blur-lg bg-opacity-95 dark:bg-opacity-95 focus-within:ring-2 focus-within:ring-black/5 dark:focus-within:ring-white/10 transition-all duration-200"
         >
-          <div className="relative">
+          <div className="relative flex items-center pl-4 pr-2 py-2">
             <textarea
-              placeholder="Continue chatting..."
-              rows={2}
-              style={{ minHeight: '3.5rem' }}
+              placeholder="Message..."
+              rows={1}
+              style={{ minHeight: '44px' }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -314,11 +333,11 @@ export default function ResultsPage({
                   }
                 }
               }}
-              className="w-full px-6 py-4 text-base bg-transparent border-none focus:outline-none text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 resize-none max-h-32 overflow-y-auto"
+              className="w-full px-2 py-2.5 text-sm bg-transparent border-none focus:outline-none text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 resize-none max-h-32 overflow-y-auto"
             />
             <motion.button
-              whileHover={{ scale: 1.1, rotate: 90 }}
-              whileTap={{ scale: 0.9 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={(e) => {
                 const input = e.currentTarget.previousElementSibling as HTMLTextAreaElement;
                 if (input && input.value.trim()) {
@@ -326,21 +345,9 @@ export default function ResultsPage({
                   input.value = '';
                 }
               }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors"
+              className="p-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-full hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors shrink-0 ml-2"
             >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
+              <ArrowUpIcon className="w-5 h-5" />
             </motion.button>
           </div>
         </motion.div>
@@ -351,15 +358,38 @@ export default function ResultsPage({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1, marginLeft: sidebarExpanded ? 280 : 64 }}
         transition={{ duration: 0.3 }}
-        className="flex-1 pb-32 md:pb-24 pt-8 hidden md:block"
+        className="flex-1 pb-32 md:pb-24 hidden md:block" // Removed pt-20
       >
+        {/* Header - Sticky Top */}
+        <div className="sticky top-0 h-14 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md z-40 flex items-center justify-between px-4 sm:px-6 md:px-8 border-b border-gray-200 dark:border-gray-800 mb-6 transition-all duration-300">
+          <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 p-2 rounded-lg transition-colors">
+            <span className="font-semibold text-gray-700 dark:text-gray-200 text-sm">ShopGPT 4.0</span>
+            <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+              Share
+            </button>
+            <button className="p-1.5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+              </svg>
+            </button>
+          </div>
+        </div>
         {/* Chat History Section */}
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 md:px-8 py-6 sm:py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-6 sm:py-8">
           <motion.h2
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
-            className="text-xl sm:text-2xl font-bold text-black dark:text-white mb-2"
+            className="text-lg sm:text-xl font-bold text-black dark:text-white mb-2"
           >
             CHAT
           </motion.h2>
@@ -367,13 +397,13 @@ export default function ResultsPage({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
-            className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-6 sm:mb-8"
+            className="text-sm text-gray-600 dark:text-gray-400 mb-4 sm:mb-6"
           >
             Your conversation with AI
           </motion.p>
 
           {/* Chat Messages */}
-          <div className="space-y-12 mb-12">
+          <div className="space-y-8 mb-12">
             {chatHistory.map((message, index) => (
               <motion.div
                 key={index}
@@ -397,81 +427,6 @@ export default function ResultsPage({
                 {/* AI response with products */}
                 {message.role === 'ai' && (
                   <div className="w-full space-y-4">
-                    {/* Product Cards Section - Above AI message */}
-                    {message.products && message.products.length > 0 && (() => {
-                      const isExpanded = expandedProducts[index];
-                      const visibleProducts = isExpanded ? message.products : message.products.slice(0, 4);
-                      const hasMore = message.products.length > 4;
-
-                      return (
-                        <motion.div
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          className="w-full"
-                        >
-                          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
-                            <span>🛍️</span>
-                            Found {message.products.length} products
-                          </p>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                            {visibleProducts.map((product: any, pIndex: number) => (
-                              <ProductCard
-                                key={product.id || pIndex}
-                                product={product}
-                                index={pIndex}
-                              />
-                            ))}
-                          </div>
-                          {hasMore && (
-                            <motion.button
-                              whileHover={{ scale: 1.02 }}
-                              whileTap={{ scale: 0.98 }}
-                              onClick={() => setExpandedProducts(prev => ({ ...prev, [index]: !isExpanded }))}
-                              className="mt-4 w-full py-3 px-4 border-2 border-gray-200 dark:border-gray-700 rounded-xl text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
-                            >
-                              {isExpanded ? (
-                                <>
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                                  </svg>
-                                  Show Less
-                                </>
-                              ) : (
-                                <>
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                  </svg>
-                                  Show {message.products.length - 4} More Products
-                                </>
-                              )}
-                            </motion.button>
-                          )}
-                        </motion.div>
-                      );
-                    })()}
-
-                    {/* Product Skeleton Loaders when streaming and no products yet */}
-                    {isStreaming && index === chatHistory.length - 1 && (!message.products || message.products.length === 0) && (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="w-full"
-                      >
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
-                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                          </svg>
-                          Searching for products...
-                        </p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                          {[...Array(4)].map((_, i) => (
-                            <ProductCardSkeleton key={i} />
-                          ))}
-                        </div>
-                      </motion.div>
-                    )}
-
                     {/* AI Message Bubble or Clarification Widget */}
                     {message.clarification && message.clarification.widgets?.length > 0 ? (
                       <ClarificationWidget
@@ -479,16 +434,21 @@ export default function ResultsPage({
                         widgets={message.clarification.widgets}
                         parsedSoFar={message.clarification.parsedSoFar}
                         onSubmit={(responses) => {
-                          // Build a natural language query from responses
+                          // Build a search query that includes the original item + all responses
+                          // Format: "t-shirt gender: mens, style: casual, size: M, budget: 50"
+                          const parsedData = message.clarification?.parsedSoFar || {};
+                          const originalItem = parsedData.item || parsedData.category || '';
                           const parts = Object.entries(responses)
-                            .filter(([_, v]) => v)
+                            .filter(([_, v]) => v !== undefined && v !== null && v !== '')
                             .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`);
-                          const clarificationQuery = parts.join(', ');
-                          onSearch(clarificationQuery);
+                          const clarificationQuery = `${originalItem} ${parts.join(', ')}`.trim();
+                          onSearch(clarificationQuery, { hideUserMessage: true });
                         }}
                         onSkip={() => {
-                          // Skip clarification and proceed with current context
-                          onSearch('show me what you have');
+                          // Skip clarification and proceed with the detected item
+                          const parsedData = message.clarification?.parsedSoFar || {};
+                          const originalItem = parsedData.item || parsedData.category || 'product';
+                          onSearch(`show me ${originalItem} options`, { hideUserMessage: true });
                         }}
                       />
                     ) : (
@@ -526,9 +486,9 @@ export default function ResultsPage({
                           </div>
                         ) : (
                           <>
-                            <p className="whitespace-pre-wrap">{message.content}</p>
+                            <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
                             {isStreaming && index === chatHistory.length - 1 && (
-                              <span className="inline-block w-2 h-4 bg-black dark:bg-white ml-1 animate-pulse"></span>
+                              <span className="inline-block w-1.5 h-3 bg-black dark:bg-white ml-1 animate-pulse"></span>
                             )}
                           </>
                         )}
@@ -538,6 +498,95 @@ export default function ResultsPage({
                           </p>
                         )}
                       </div>
+                    )}
+
+                    {/* Product Cards Section */}
+                    {message.products && message.products.length > 0 && (() => {
+                      const visibleCount = expandedProducts[index] || 4;
+                      const visibleProducts = message.products.slice(0, visibleCount);
+                      const hasMore = message.products.length > visibleCount;
+
+                      return (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="w-full"
+                        >
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
+                            <span>🛍️</span>
+                            Found {message.products.length} products
+                          </p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {visibleProducts.map((product: any, pIndex: number) => (
+                              <div
+                                key={`${product.id || 'product'}-${pIndex}`}
+                                className="col-span-1"
+                              >
+                                <ProductCard
+                                  product={product}
+                                  index={pIndex}
+                                  size="small"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                          {hasMore ? (
+                            <motion.button
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => setExpandedProducts(prev => ({
+                                ...prev,
+                                [index]: (prev[index] || 4) + 3
+                              }))}
+                              className="mt-6 w-full py-3 px-4 border-2 border-gray-100 dark:border-gray-800 rounded-xl text-gray-600 dark:text-gray-400 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 bg-white dark:bg-gray-900/50"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                              Show 3 More Products
+                            </motion.button>
+                          ) : message.products.length > 4 && (
+                            <motion.button
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => setExpandedProducts(prev => ({
+                                ...prev,
+                                [index]: 4
+                              }))}
+                              className="mt-6 w-full py-3 px-4 border-2 border-gray-100 dark:border-gray-800 rounded-xl text-gray-600 dark:text-gray-400 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 bg-white dark:bg-gray-900/50"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                              </svg>
+                              Show Less
+                            </motion.button>
+                          )}
+                        </motion.div>
+                      );
+                    })()}
+
+                    {/* Product Skeleton Loaders when streaming and no products yet */}
+                    {isStreaming && index === chatHistory.length - 1 && (!message.products || message.products.length === 0) && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="w-full"
+                      >
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
+                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Searching for products...
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {[...Array(4)].map((_, i) => (
+                            <div key={i} className="col-span-1">
+                              <ProductCardSkeleton />
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
                     )}
                   </div>
                 )}
