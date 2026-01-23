@@ -236,6 +236,13 @@ export default function Home() {
     setChatSessions(updatedSessions);
     localStorage.setItem('chat_sessions', JSON.stringify(updatedSessions));
 
+    // If we're deleting the current session, clear the chat
+    if (sessionId === currentSessionId) {
+      setChatHistory([]);
+      setCurrentQuery('');
+      setCurrentSessionId(null);
+    }
+
     // Also delete from backend if authenticated
     if (accessToken) {
       try {
@@ -379,9 +386,38 @@ export default function Home() {
       setIsStreaming(true);
 
       // Add user message to history (unless hidden for clarification responses)
+      const userMessage = { role: 'user' as const, content: query, timestamp: new Date().toISOString() };
+
       if (!options?.hideUserMessage) {
-        const userMessage = { role: 'user' as const, content: query, timestamp: new Date().toISOString() };
         setChatHistory(prev => [...prev, userMessage]);
+
+        // Immediately create/update session in sidebar so conversation shows up right away
+        const sessionId = currentSessionId || Date.now().toString();
+        if (!currentSessionId) {
+          setCurrentSessionId(sessionId);
+        }
+
+        const sessionData = {
+          id: sessionId,
+          timestamp: new Date().toISOString(),
+          messages: [userMessage],
+          preview: query.slice(0, 50) + (query.length > 50 ? '...' : ''),
+        };
+
+        setChatSessions(prev => {
+          const existingIndex = prev.findIndex(s => s.id === sessionId);
+          let updatedSessions;
+
+          if (existingIndex >= 0) {
+            updatedSessions = [...prev];
+            updatedSessions[existingIndex] = sessionData;
+          } else {
+            updatedSessions = [sessionData, ...prev].slice(0, 10);
+          }
+
+          localStorage.setItem('chat_sessions', JSON.stringify(updatedSessions));
+          return updatedSessions;
+        });
       }
 
       // Show results page immediately
