@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { useState } from 'react';
 
 interface Product {
   id?: string;
@@ -34,33 +35,41 @@ interface ProductCardProps {
   size?: 'large' | 'small';
   delay?: number;
   index?: number;
+  // Save functionality
+  onSave?: (product: Product) => void;
+  onUnsave?: (productId: string) => void;
+  isSaved?: boolean;
+  savedProductId?: string;
 }
 
 // Skeleton loader for product cards
 export function ProductCardSkeleton() {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden animate-pulse border border-gray-100 dark:border-gray-700">
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden animate-pulse border border-gray-100 dark:border-gray-700 flex flex-row h-28 w-full">
       {/* Image skeleton */}
-      <div className="w-full h-40 bg-gray-200 dark:bg-gray-700" />
+      <div className="w-28 h-full bg-gray-200 dark:bg-gray-700 shrink-0" />
 
       {/* Content skeleton */}
-      <div className="p-4 space-y-3">
-        {/* Title */}
-        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
-        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
+      <div className="flex-1 p-3 flex flex-col justify-between">
+        <div className="space-y-2">
+          {/* Title and Rating */}
+          <div className="flex justify-between gap-2">
+            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
+            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-8" />
+          </div>
 
-        {/* Price */}
-        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/4 mt-2" />
-
-        {/* Rating */}
-        <div className="flex gap-1 mt-2">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="w-4 h-4 bg-gray-200 dark:bg-gray-700 rounded-full" />
-          ))}
+          {/* Description */}
+          <div className="space-y-1">
+            <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded w-full" />
+            <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded w-5/6" />
+          </div>
         </div>
 
-        {/* Button */}
-        <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded-lg mt-3" />
+        {/* Footer: Price and Button */}
+        <div className="flex items-end justify-between">
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16" />
+          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-20" />
+        </div>
       </div>
     </div>
   );
@@ -76,7 +85,36 @@ export default function ProductCard({
   size = 'small',
   delay = 0,
   index = 0,
+  onSave,
+  onUnsave,
+  isSaved = false,
+  savedProductId,
 }: ProductCardProps) {
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [localSaved, setLocalSaved] = useState(isSaved);
+  const [saving, setSaving] = useState(false);
+
+  // Handle save/unsave
+  const handleSaveClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (saving) return;
+
+    setSaving(true);
+    try {
+      if (localSaved && onUnsave && savedProductId) {
+        await onUnsave(savedProductId);
+        setLocalSaved(false);
+      } else if (!localSaved && onSave && productData) {
+        await onSave(productData as Product);
+        setLocalSaved(true);
+      }
+    } catch (error) {
+      console.error('Save/unsave error:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Normalize product data (handle both new and legacy props)
   const productData = product || {
     title: name,
@@ -87,17 +125,51 @@ export default function ProductCard({
   };
 
   const displayTitle = productData.title || productData.name || 'Unknown Product';
+  const displayDescription = productData.description || 'No description available for this product.';
   const displayPrice = productData.price || 0;
   const displayRating = productData.rating || 0;
   const displayImage = productData.image_url || productData.image || '';
-  const displayUrl = productData.affiliate_url || productData.link || productData.url || '';
-  const displaySource = productData.source || '';
-  const displayReviews = productData.review_count || 0;
   const finalScore = productData.scores?.final_score;
+  const displaySource = productData.source || '';
+
+  // Robust URL extraction with validation
+  const rawUrl = productData.affiliate_url || productData.link || productData.url || '';
+  const displayUrl = (() => {
+    if (!rawUrl) return '';
+    // If it's already a full URL
+    if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+      return rawUrl;
+    }
+    // If it looks like a relative path, try to construct absolute URL
+    if (rawUrl.startsWith('/')) {
+      // Try to use source domain if available
+      const source = displaySource.toLowerCase();
+      // Common domain mappings
+      const domainMap: Record<string, string> = {
+        'amazon': 'www.amazon.com',
+        'google_shopping': 'shopping.google.com',
+        'express': 'www.express.com',
+        'asos': 'www.asos.com',
+        'nordstrom': 'www.nordstrom.com',
+        'macys': 'www.macys.com',
+        'h&m': 'www.hm.com',
+      };
+      const domain = Object.entries(domainMap).find(([key]) => source.includes(key))?.[1];
+      if (domain) {
+        return `https://${domain}${rawUrl}`;
+      }
+    }
+    // Return as-is if we can't fix it (will be caught by validation in handleClick)
+    return rawUrl;
+  })();
+
+  const hasValidUrl = displayUrl.startsWith('http://') || displayUrl.startsWith('https://');
 
   const handleClick = () => {
-    if (displayUrl) {
+    if (hasValidUrl) {
       window.open(displayUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      console.warn('[ProductCard] No valid URL for product:', displayTitle, 'Raw URL:', rawUrl);
     }
   };
 
@@ -109,116 +181,228 @@ export default function ProductCard({
     }).format(p);
   };
 
-  // Render stars
-  const renderStars = (r: number = 0) => {
-    const stars = [];
-    const fullStars = Math.floor(r);
-    const halfStar = r % 1 >= 0.5;
+  // Large variant (Featured horizontal card - compact)
+  if (size === 'large') {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: (delay || index * 0.03) }}
+        whileHover={{ boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}
+        className="w-full bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-row h-32 group cursor-pointer"
+        onClick={handleClick}
+      >
+        {/* Image Section with carousel controls */}
+        <div className="relative w-32 h-full bg-gray-50 dark:bg-gray-700/50 shrink-0 flex items-center justify-center">
+          {displayImage ? (
+            <img
+              src={displayImage}
+              alt={displayTitle}
+              className="w-full h-full object-contain p-2"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect fill="%23f3f4f6" width="100" height="100"/><text x="50" y="55" font-family="sans-serif" font-size="10" text-anchor="middle" fill="%239ca3af">No Image</text></svg>';
+              }}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-gray-400">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+          )}
 
-    for (let i = 0; i < 5; i++) {
-      if (i < fullStars) {
-        stars.push(
-          <svg key={i} className="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 20 20">
-            <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
-          </svg>
-        );
-      } else if (i === fullStars && halfStar) {
-        stars.push(
-          <svg key={i} className="w-4 h-4 text-yellow-400" viewBox="0 0 20 20">
-            <defs>
-              <linearGradient id={`half-${index}-${i}`}>
-                <stop offset="50%" stopColor="currentColor" />
-                <stop offset="50%" stopColor="#D1D5DB" />
-              </linearGradient>
-            </defs>
-            <path fill={`url(#half-${index}-${i})`} d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
-          </svg>
-        );
-      } else {
-        stars.push(
-          <svg key={i} className="w-4 h-4 text-gray-300 dark:text-gray-600 fill-current" viewBox="0 0 20 20">
-            <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
-          </svg>
-        );
-      }
-    }
-    return stars;
-  };
+          {/* Carousel arrows */}
+          <button
+            onClick={(e) => { e.stopPropagation(); }}
+            className="absolute left-1 top-1/2 -translate-y-1/2 w-5 h-5 bg-white/80 dark:bg-gray-800/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+          >
+            <svg className="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); }}
+            className="absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 bg-white/80 dark:bg-gray-800/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+          >
+            <svg className="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
 
+          {/* Save button */}
+          {(onSave || onUnsave) && (
+            <button
+              onClick={handleSaveClick}
+              disabled={saving}
+              className={`absolute top-1 right-1 w-7 h-7 rounded-full flex items-center justify-center transition-all shadow-sm ${localSaved
+                  ? 'bg-orange-500 text-white'
+                  : 'bg-white/90 dark:bg-gray-800/90 text-gray-400 hover:text-orange-500 opacity-0 group-hover:opacity-100'
+                } ${saving ? 'animate-pulse' : ''}`}
+              title={localSaved ? 'Remove from saved' : 'Save for later'}
+            >
+              <svg
+                className="w-4 h-4"
+                fill={localSaved ? 'currentColor' : 'none'}
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        {/* Content Section */}
+        <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
+          <div className="space-y-1">
+            {/* Title and Rating */}
+            <div className="flex items-start gap-2">
+              <h3 className="font-semibold text-sm text-gray-900 dark:text-white line-clamp-1 leading-tight flex-1">
+                {displayTitle}
+              </h3>
+              {displayRating > 0 && (
+                <div className="flex items-center gap-0.5 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded text-[10px] font-bold text-amber-700 dark:text-amber-400 shrink-0">
+                  <span>{displayRating.toFixed(1)}</span>
+                  <span>★</span>
+                </div>
+              )}
+            </div>
+
+            {/* Description */}
+            <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-3 leading-relaxed">
+              {displayDescription}
+            </p>
+          </div>
+
+          {/* Footer: Price and Link */}
+          <div className="flex items-center justify-between mt-1">
+            <p className="text-sm font-bold text-gray-900 dark:text-white">
+              {formatPrice(displayPrice)}
+            </p>
+            {hasValidUrl ? (
+              <button className="text-xs font-medium text-orange-500 hover:text-orange-600 flex items-center gap-1 transition-colors">
+                Product Details
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </button>
+            ) : (
+              <span className="text-[10px] text-gray-400">No link</span>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Small variant (Compact horizontal card)
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: (delay || index * 0.05) }}
-      whileHover={{ y: -4, boxShadow: '0 12px 40px rgba(0,0,0,0.12)' }}
+      transition={{ delay: (delay || index * 0.03) }}
+      whileHover={{ boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}
+      className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-row h-28 group cursor-pointer"
       onClick={handleClick}
-      className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-lg border border-gray-100 dark:border-gray-700"
     >
-      {/* Product Image */}
-      <div className="relative w-full h-40 bg-gray-100 dark:bg-gray-700 overflow-hidden">
+      {/* Image Section with carousel controls */}
+      <div className="relative w-28 h-full bg-gray-50 dark:bg-gray-700/50 shrink-0 flex items-center justify-center">
         {displayImage ? (
           <img
             src={displayImage}
             alt={displayTitle}
             className="w-full h-full object-contain p-2"
             onError={(e) => {
-              (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect fill="%23f3f4f6" width="100" height="100"/><text x="50" y="55" font-family="sans-serif" font-size="12" text-anchor="middle" fill="%239ca3af">No Image</text></svg>';
+              (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect fill="%23f3f4f6" width="100" height="100"/><text x="50" y="55" font-family="sans-serif" font-size="10" text-anchor="middle" fill="%239ca3af">No Image</text></svg>';
             }}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-gray-400">
-            <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
           </div>
         )}
 
-        {/* Score badge */}
-        {finalScore && (
-          <div className="absolute top-2 right-2 bg-black dark:bg-white text-white dark:text-black text-xs font-bold px-2 py-1 rounded-full">
-            {Math.round(finalScore)}% match
-          </div>
-        )}
+        {/* Carousel arrows */}
+        <button
+          onClick={(e) => { e.stopPropagation(); }}
+          className="absolute left-1 top-1/2 -translate-y-1/2 w-5 h-5 bg-white/80 dark:bg-gray-800/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+        >
+          <svg className="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); }}
+          className="absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 bg-white/80 dark:bg-gray-800/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+        >
+          <svg className="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
 
-        {/* Source badge */}
-        {displaySource && (
-          <div className="absolute top-2 left-2 bg-gray-800/70 dark:bg-gray-200/70 text-white dark:text-black text-xs px-2 py-1 rounded">
-            {displaySource}
-          </div>
+        {/* Save button */}
+        {(onSave || onUnsave) && (
+          <button
+            onClick={handleSaveClick}
+            disabled={saving}
+            className={`absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center transition-all shadow-sm ${localSaved
+              ? 'bg-orange-500 text-white'
+              : 'bg-white/90 dark:bg-gray-800/90 text-gray-400 hover:text-orange-500 opacity-0 group-hover:opacity-100'
+              } ${saving ? 'animate-pulse' : ''}`}
+            title={localSaved ? 'Remove from saved' : 'Save for later'}
+          >
+            <svg
+              className="w-3.5 h-3.5"
+              fill={localSaved ? 'currentColor' : 'none'}
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+          </button>
         )}
       </div>
 
-      {/* Content */}
-      <div className="p-4">
-        {/* Title */}
-        <h3 className="font-medium text-sm text-gray-900 dark:text-white line-clamp-2 mb-2 min-h-[2.5rem]">
-          {displayTitle}
-        </h3>
+      {/* Content Section */}
+      <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
+        <div className="space-y-1">
+          {/* Title and Rating */}
+          <div className="flex items-start gap-2">
+            <h3 className="font-semibold text-xs text-gray-900 dark:text-white line-clamp-1 leading-tight flex-1">
+              {displayTitle}
+            </h3>
+            {displayRating > 0 && (
+              <div className="flex items-center gap-0.5 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded text-[10px] font-bold text-amber-700 dark:text-amber-400 shrink-0">
+                <span>{displayRating.toFixed(1)}</span>
+                <span>★</span>
+              </div>
+            )}
+          </div>
 
-        {/* Price */}
-        <p className="text-lg font-bold text-black dark:text-white mb-2">
-          {formatPrice(displayPrice)}
-        </p>
-
-        {/* Rating */}
-        <div className="flex items-center gap-2 mb-3">
-          <div className="flex">{renderStars(displayRating)}</div>
-          {displayReviews > 0 && (
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              ({displayReviews.toLocaleString()})
-            </span>
-          )}
+          {/* Description */}
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">
+            {displayDescription}
+          </p>
         </div>
 
-        {/* View Button */}
-        <button
-          className="w-full py-2 px-4 bg-black dark:bg-white text-white dark:text-black text-sm font-medium rounded-lg hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
-        >
-          View Deal
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-          </svg>
-        </button>
+        {/* Footer: Price and Link */}
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-bold text-gray-900 dark:text-white">
+            {formatPrice(displayPrice)}
+          </p>
+          {hasValidUrl ? (
+            <button className="text-[11px] font-medium text-orange-500 hover:text-orange-600 flex items-center gap-1 transition-colors">
+              Product Details
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </button>
+          ) : (
+            <span className="text-[10px] text-gray-400">No link</span>
+          )}
+        </div>
       </div>
     </motion.div>
   );
