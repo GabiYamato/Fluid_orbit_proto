@@ -125,30 +125,24 @@ class ScrapingService:
         }
 
     async def _scrape_fashion_retailers(self, query: str) -> Tuple[List[Dict[str, Any]], List[str]]:
-        """Scrape from the curated list in parallel batches."""
+        """Scrape ALL retailers simultaneously for maximum speed and product count."""
         products = []
         effective_sources = []
         
-        # Randomize order to be fair to different stores
         retailer_keys = list(FASHION_RETAILERS.keys())
-        random.shuffle(retailer_keys)
         
-        # Batch processing to avoid killing the local network/IP
-        for i in range(0, len(retailer_keys), self.retailer_concurrency):
-            batch = retailer_keys[i:i + self.retailer_concurrency]
-            tasks = [self._scrape_single_store(k, query) for k in batch]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            for idx, res in enumerate(results):
-                if isinstance(res, list) and res:
-                    products.extend(res)
-                    effective_sources.append(batch[idx])
-            
-            
-            # If we already have plenty of results, stop scraping a million sites
-            # if len(products) >= 20: 
-            #    break
-                
+        # Scrape ALL retailers at once (truly async)
+        logger.info(f"🚀 Scraping ALL {len(retailer_keys)} retailers simultaneously...")
+        
+        tasks = [self._scrape_single_store(k, query) for k in retailer_keys]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        for idx, res in enumerate(results):
+            if isinstance(res, list) and res:
+                products.extend(res)
+                effective_sources.append(retailer_keys[idx])
+        
+        logger.info(f"✅ Scraped {len(products)} products from {len(effective_sources)} retailers")
         return products, effective_sources
 
     async def _scrape_single_store(self, key: str, query: str) -> List[Dict[str, Any]]:
@@ -171,20 +165,40 @@ class ScrapingService:
                      
                 found = []
                 
-                for item in items[:10]:
+                for item in items[:15]:  # Increased from 10 to 15 per retailer
                     try:
-                        title_el = item.select_one('h2, h3, [class*="title"], [class*="name"], .pdp-link, a[class*="link"]')
+                        title_el = item.select_one('h2, h3, h4, [class*="title"], [class*="name"], .pdp-link, a[class*="link"]')
                         if not title_el: continue
                         title = title_el.get_text(strip=True)
                         if len(title) < 3: continue
                         
-                        price_el = item.select_one('[class*="price"], span:contains("$")')
-                        price = self._parse_price(price_el.get_text() if price_el else "$0")
+                        # Enhanced price extraction with multiple selectors
+                        price_selectors = [
+                            '[class*="price"]',
+                            '[class*="Price"]',
+                            '.price',
+                            '.product-price',
+                            '[data-price]',
+                            'span[class*="amount"]',
+                            '.sale-price',
+                            '.current-price',
+                            '.regular-price',
+                        ]
+                        price = 0.0
+                        for selector in price_selectors:
+                            price_el = item.select_one(selector)
+                            if price_el:
+                                price_text = price_el.get('data-price') or price_el.get_text()
+                                price = self._parse_price(price_text)
+                                if price > 0:
+                                    break
                         
                         img_el = item.select_one('img')
-                        img = img_el.get('src') or img_el.get('data-src') or ""
-                        if img and not img.startswith('http'):
-                            img = urljoin(f"https://{config['domain']}", img)
+                        img = ""
+                        if img_el:
+                            img = img_el.get('src') or img_el.get('data-src') or img_el.get('data-lazy-src') or ""
+                            if img and not img.startswith('http'):
+                                img = urljoin(f"https://{config['domain']}", img)
                         
                         # improved link extraction
                         link_el = item.select_one('a[href]')

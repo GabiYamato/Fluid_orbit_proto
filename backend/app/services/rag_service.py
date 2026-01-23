@@ -42,8 +42,7 @@ class RAGService:
         self.using_scraper = True
         self.scraping_service = ScrapingService()
         self.external_api_service = ExternalAPIService() # Re-enabled for fallback
-        self.jina_embedder = LocalEmbeddingService()  # Local embeddings
- # (SentenceTransformer)
+        self.jina_embedder = LocalEmbeddingService()  # Local embeddings (SentenceTransformer)
         self.chunking_service = ChunkingService()  # Semantic chunking
         
         if settings.qdrant_path:
@@ -58,33 +57,34 @@ class RAGService:
             except Exception:
                 pass
         
-        # LLM Initialization
+        # LLM Initialization - PRIORITIZE GEMINI over local LLM
         self.model_name = "gpt-4o-mini" # Default fallback
         
-        if settings.use_local_llm:
+        # Try Gemini FIRST (preferred for quality)
+        if settings.gemini_api_key:
             try:
-                print(f"🦙 Initializing Local LLM (Ollama) at {settings.ollama_base_url}")
+                from google import genai
+                self.gemini_client = genai.Client(api_key=settings.gemini_api_key)
+                self.model_name = "gemini-2.0-flash"
+                self.embedding_model_name = "models/text-embedding-004"
+                print(f"✨ Using Gemini ({self.model_name}) for all responses")
+            except Exception as e:
+                print(f"Gemini initialization error: {e}")
+        
+        # Only use local LLM if Gemini is not available
+        if not self.gemini_client and settings.use_local_llm:
+            try:
+                print(f"🦙 Falling back to Local LLM (Ollama) at {settings.ollama_base_url}")
                 self.openai_client = openai.AsyncOpenAI(
                     base_url=settings.ollama_base_url,
                     api_key="ollama"
                 )
                 self.model_name = "llama3.2:3b"
                 self.embedding_model_name = "nomic-embed-text"
-                self.gemini_client = None # Ensure we don't use Gemini
             except Exception as e:
                 print(f"Ollama initialization warning: {e}")
-
-        # If not using local, try Gemini then OpenAI cloud
-        if not self.openai_client and settings.gemini_api_key:
-            try:
-                from google import genai
-                self.gemini_client = genai.Client(api_key=settings.gemini_api_key)
-                self.gemini_client = genai.Client(api_key=settings.gemini_api_key)
-                self.model_name = "gemini-2.5-flash"
-                self.embedding_model_name = "models/text-embedding-004" # Gemini specific
-            except Exception as e:
-                print(f"Gemini initialization error: {e}")
         
+        # Final fallback to OpenAI cloud
         if not self.openai_client and not self.gemini_client and settings.openai_api_key:
             self.openai_client = openai.AsyncOpenAI(api_key=settings.openai_api_key)
     
@@ -176,11 +176,11 @@ Query:"""
             products = vector_results
             data_source = "indexed"
         else:
-            # STEP 2: Scrape retailers in parallel
-            logger.info("📡 SCRAPING: Not enough cached results, scraping retailers...")
+            # STEP 2: Scrape ALL retailers in parallel - get 100+ products
+            logger.info("📡 SCRAPING: Scraping ALL retailers simultaneously for 100+ products...")
             
-            # Use the original query for scraping (more specific)
-            scrape_data = await self.scraping_service.search_and_scrape(query, limit=50)
+            # Use a simplified/broad query for maximum results
+            scrape_data = await self.scraping_service.search_and_scrape(query, limit=150)
             scraped_products = scrape_data.get("products", [])
             total_scraped = len(scraped_products)
             logger.info(f"   → Scraped {total_scraped} products from retailers")
