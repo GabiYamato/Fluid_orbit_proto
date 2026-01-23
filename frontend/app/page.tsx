@@ -183,25 +183,25 @@ export default function Home() {
       setCurrentSessionId(sessionId);
     }
 
-    // Update local state: replace existing or add new
+    // Update local state AND localStorage together
     setChatSessions(prev => {
       const existingIndex = prev.findIndex(s => s.id === sessionId);
+      let updatedSessions;
+
       if (existingIndex >= 0) {
         // Update existing session
-        const updated = [...prev];
-        updated[existingIndex] = sessionData;
-        return updated;
+        updatedSessions = [...prev];
+        updatedSessions[existingIndex] = sessionData;
       } else {
         // Add new session at the beginning
-        return [sessionData, ...prev].slice(0, 10);
+        updatedSessions = [sessionData, ...prev].slice(0, 10);
       }
-    });
 
-    // Save to localStorage always
-    const updatedSessions = chatSessions.find(s => s.id === sessionId)
-      ? chatSessions.map(s => s.id === sessionId ? sessionData : s)
-      : [sessionData, ...chatSessions].slice(0, 10);
-    localStorage.setItem('chat_sessions', JSON.stringify(updatedSessions));
+      // Save to localStorage with the updated sessions (inside callback to use correct state)
+      localStorage.setItem('chat_sessions', JSON.stringify(updatedSessions));
+
+      return updatedSessions;
+    });
 
     // Also save to backend if authenticated
     if (accessToken) {
