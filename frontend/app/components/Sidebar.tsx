@@ -11,6 +11,14 @@ interface ChatSession {
   preview: string;
 }
 
+interface SavedProduct {
+  id: string;
+  title: string;
+  price?: number;
+  image_url?: string;
+  affiliate_url: string;
+}
+
 interface SidebarProps {
   onHomeClick?: () => void;
   onProfileClick?: () => void;
@@ -18,11 +26,14 @@ interface SidebarProps {
   onLogoClick?: () => void;
   onNewChat?: () => void;
   onHistoryClick?: () => void;
-  activeTab?: 'home' | 'profile' | 'settings';
+  onSavedProductsClick?: () => void;
+  activeTab?: 'home' | 'profile' | 'settings' | 'saved';
   showProfilePopup?: boolean;
   chatSessions?: ChatSession[];
+  savedProducts?: SavedProduct[];
   onRestoreSession?: (sessionId: string) => void;
   onDeleteSession?: (sessionId: string) => void;
+  onRemoveSavedProduct?: (productId: string) => void;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
 }
@@ -34,11 +45,14 @@ export default function Sidebar({
   onLogoClick,
   onNewChat,
   onHistoryClick,
+  onSavedProductsClick,
   activeTab,
   showProfilePopup,
   chatSessions = [],
+  savedProducts = [],
   onRestoreSession,
   onDeleteSession,
+  onRemoveSavedProduct,
   isExpanded = false,
   onToggleExpand,
 }: SidebarProps) {
@@ -146,18 +160,42 @@ export default function Sidebar({
           {expanded && <span className="text-sm text-gray-700 dark:text-gray-300">Home</span>}
         </motion.button>
 
-        {/* History Button */}
+        {/* Saved Products Button */}
+        <motion.button
+          whileHover={{ backgroundColor: 'rgba(0,0,0,0.05)' }}
+          whileTap={{ scale: 0.98 }}
+          onClick={onSavedProductsClick}
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors relative ${activeTab === 'saved' ? 'bg-gray-100 dark:bg-gray-800' : ''} ${!expanded ? 'justify-center' : ''}`}
+          title="Saved Products"
+        >
+          <svg className="w-5 h-5 text-gray-700 dark:text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+          </svg>
+          {expanded && <span className="text-sm text-gray-700 dark:text-gray-300">Saved Products</span>}
+          {!expanded && savedProducts.length > 0 && (
+            <span className="absolute right-1 w-4 h-4 bg-orange-500 text-white text-xs rounded-full flex items-center justify-center">
+              {savedProducts.length > 9 ? '9+' : savedProducts.length}
+            </span>
+          )}
+          {expanded && savedProducts.length > 0 && (
+            <span className="ml-auto w-5 h-5 bg-orange-500 text-white text-xs rounded-full flex items-center justify-center">
+              {savedProducts.length > 9 ? '9+' : savedProducts.length}
+            </span>
+          )}
+        </motion.button>
+
+        {/* Search Conversations Button */}
         <motion.button
           whileHover={{ backgroundColor: 'rgba(0,0,0,0.05)' }}
           whileTap={{ scale: 0.98 }}
           onClick={onHistoryClick}
           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${!expanded ? 'justify-center' : ''}`}
-          title="History"
+          title="Search conversations"
         >
           <svg className="w-5 h-5 text-gray-700 dark:text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
-          {expanded && <span className="text-sm text-gray-700 dark:text-gray-300">History</span>}
+          {expanded && <span className="text-sm text-gray-700 dark:text-gray-300">Search conversations</span>}
           {!expanded && chatSessions.length > 0 && (
             <span className="absolute right-1 w-4 h-4 bg-black dark:bg-white text-white dark:text-black text-xs rounded-full flex items-center justify-center">
               {chatSessions.length > 9 ? '9+' : chatSessions.length}
@@ -208,6 +246,86 @@ export default function Sidebar({
                 </button>
               </motion.div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Saved Products Section */}
+      {expanded && savedProducts.length > 0 && (
+        <div className="overflow-y-auto px-3 mt-4 max-h-48">
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 px-3">
+            Saved Products
+          </p>
+          <div className="space-y-1">
+            {savedProducts.slice(0, 5).map((product) => (
+              <motion.div
+                key={product.id}
+                whileHover={{ backgroundColor: 'rgba(0,0,0,0.05)' }}
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors text-left group cursor-pointer"
+              >
+                {/* Product Thumbnail */}
+                {product.image_url ? (
+                  <img
+                    src={product.image_url}
+                    alt={product.title}
+                    className="w-8 h-8 object-cover rounded flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded flex-shrink-0 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-gray-700 dark:text-gray-300 truncate">
+                    {product.title}
+                  </p>
+                  {product.price && (
+                    <p className="text-xs text-orange-500 font-medium">
+                      ${product.price.toFixed(2)}
+                    </p>
+                  )}
+                </div>
+                {/* Action buttons on hover */}
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {/* Open link */}
+                  <a
+                    href={product.affiliate_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+                    title="Open product"
+                  >
+                    <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                  {/* Delete button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemoveSavedProduct?.(product.id);
+                    }}
+                    className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded"
+                    title="Remove from saved"
+                  >
+                    <svg className="w-3.5 h-3.5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </motion.div>
+            ))}
+            {savedProducts.length > 5 && (
+              <button
+                onClick={onSavedProductsClick}
+                className="w-full text-xs text-orange-500 hover:text-orange-600 py-1 text-center"
+              >
+                View all {savedProducts.length} saved products →
+              </button>
+            )}
           </div>
         </div>
       )}
