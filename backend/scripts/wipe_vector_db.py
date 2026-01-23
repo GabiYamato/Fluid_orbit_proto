@@ -43,13 +43,19 @@ def wipe_vector_database(confirm: bool = False) -> bool:
     print()
     
     # Show current configuration
-    if settings.qdrant_url:
+    # Prioritize Path over URL, matching RAG Service logic
+    if settings.qdrant_path:
+        qdrant_path = settings.qdrant_path
+        print(f"📍 Qdrant Path: {os.path.abspath(qdrant_path)}")
+        try:
+            qdrant_client = QdrantClient(path=qdrant_path)
+        except Exception as e:
+            print(f"❌ Failed to initialize local Qdrant: {e}")
+            return False
+            
+    elif settings.qdrant_url:
         print(f"📍 Qdrant URL: {settings.qdrant_url}")
         qdrant_client = QdrantClient(url=settings.qdrant_url)
-    else:
-        qdrant_path = settings.qdrant_path or "./qdrant_data"
-        print(f"📍 Qdrant Path: {os.path.abspath(qdrant_path)}")
-        qdrant_client = QdrantClient(path=qdrant_path)
     
     print(f"📦 Collections to delete: {', '.join(collections)}")
     print()
