@@ -95,15 +95,15 @@ export default function SettingsPopup({
                     </div>
                     <button
                       onClick={toggleTheme}
-                      className={`relative w-14 h-8 rounded-full transition-colors ${
+                      className={`relative w-11 h-6 rounded-full transition-colors ${
                         theme === 'dark' ? 'bg-white' : 'bg-gray-900'
                       }`}
                     >
                       <motion.div
-                        className={`absolute top-1 left-1 w-6 h-6 rounded-full shadow-sm ${
+                        className={`absolute top-1 left-1 w-4 h-4 rounded-full shadow-sm ${
                           theme === 'dark' ? 'bg-gray-900' : 'bg-white'
                         }`}
-                        animate={{ x: theme === 'dark' ? 24 : 0 }}
+                        animate={{ x: theme === 'dark' ? 20 : 0 }}
                         transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                       />
                     </button>
@@ -182,15 +182,15 @@ export default function SettingsPopup({
                       </div>
                       <button
                         onClick={() => setEmailNotifications(!emailNotifications)}
-                        className={`relative w-14 h-8 rounded-full transition-colors ${
+                        className={`relative w-11 h-6 rounded-full transition-colors ${
                           emailNotifications ? 'bg-gray-900 dark:bg-white' : 'bg-gray-300 dark:bg-gray-600'
                         }`}
                       >
                         <motion.div
-                          className={`absolute top-1 left-1 w-6 h-6 rounded-full shadow-sm ${
+                          className={`absolute top-1 left-1 w-4 h-4 rounded-full shadow-sm ${
                             emailNotifications ? 'bg-white dark:bg-gray-900' : 'bg-white dark:bg-gray-400'
                           }`}
-                          animate={{ x: emailNotifications ? 24 : 0 }}
+                          animate={{ x: emailNotifications ? 20 : 0 }}
                           transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                         />
                       </button>
@@ -202,15 +202,15 @@ export default function SettingsPopup({
                       </div>
                       <button
                         onClick={() => setProductUpdates(!productUpdates)}
-                        className={`relative w-14 h-8 rounded-full transition-colors ${
+                        className={`relative w-11 h-6 rounded-full transition-colors ${
                           productUpdates ? 'bg-gray-900 dark:bg-white' : 'bg-gray-300 dark:bg-gray-600'
                         }`}
                       >
                         <motion.div
-                          className={`absolute top-1 left-1 w-6 h-6 rounded-full shadow-sm ${
+                          className={`absolute top-1 left-1 w-4 h-4 rounded-full shadow-sm ${
                             productUpdates ? 'bg-white dark:bg-gray-900' : 'bg-white dark:bg-gray-400'
                           }`}
-                          animate={{ x: productUpdates ? 24 : 0 }}
+                          animate={{ x: productUpdates ? 20 : 0 }}
                           transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                         />
                       </button>
@@ -235,15 +235,15 @@ export default function SettingsPopup({
                     </div>
                     <button
                       onClick={() => setSearchHistory(!searchHistory)}
-                      className={`relative w-14 h-8 rounded-full transition-colors ${
+                      className={`relative w-11 h-6 rounded-full transition-colors ${
                         searchHistory ? 'bg-gray-900 dark:bg-white' : 'bg-gray-300 dark:bg-gray-600'
                       }`}
                     >
                       <motion.div
-                        className={`absolute top-1 left-1 w-6 h-6 rounded-full shadow-sm ${
+                        className={`absolute top-1 left-1 w-4 h-4 rounded-full shadow-sm ${
                           searchHistory ? 'bg-white dark:bg-gray-900' : 'bg-white dark:bg-gray-400'
                         }`}
-                        animate={{ x: searchHistory ? 24 : 0 }}
+                        animate={{ x: searchHistory ? 20 : 0 }}
                         transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                       />
                     </button>
