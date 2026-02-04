@@ -36,44 +36,45 @@ USER_AGENTS = [
 
 # Comprehensive Fashion Retailers List
 FASHION_RETAILERS = {
-    "express": {"name": "Express", "domain": "express.com", "search_url": "https://www.express.com/s/{query}"},
-    "urban_outfitters": {"name": "Urban Outfitters", "domain": "urbanoutfitters.com", "search_url": "https://www.urbanoutfitters.com/search?q={query}"},
-    "old_navy": {"name": "Old Navy", "domain": "oldnavy.gap.com", "search_url": "https://oldnavy.gap.com/browse/search.do?searchText={query}"},
-    "asos": {"name": "ASOS", "domain": "asos.com", "search_url": "https://www.asos.com/us/search/?q={query}"},
-    "us_polo": {"name": "U.S. Polo Assn.", "domain": "uspoloassn.com", "search_url": "https://uspoloassn.com/search?q={query}"},
-    "garage": {"name": "Garage", "domain": "garageclothing.com", "search_url": "https://www.garageclothing.com/us/search?q={query}"},
-    "banana_factory": {"name": "Banana Republic Factory", "domain": "bananarepublicfactory.gapfactory.com", "search_url": "https://bananarepublicfactory.gapfactory.com/browse/search.do?searchText={query}"},
-    "hm": {"name": "H&M", "domain": "hm.com", "search_url": "https://www2.hm.com/en_us/search-results.html?q={query}"},
-    "abercrombie": {"name": "Abercrombie & Fitch", "domain": "abercrombie.com", "search_url": "https://www.abercrombie.com/shop/us/search?searchTerm={query}"},
-    "edikted": {"name": "Edikted", "domain": "edikted.com", "search_url": "https://edikted.com/search?q={query}"},
-    "hollister": {"name": "Hollister", "domain": "hollisterco.com", "search_url": "https://www.hollisterco.com/shop/us/search?searchTerm={query}"},
-    "altard_state": {"name": "Altar'd State", "domain": "altardstate.com", "search_url": "https://www.altardstate.com/search?q={query}"},
-    "american_eagle": {"name": "American Eagle", "domain": "ae.com", "search_url": "https://www.ae.com/us/en/search/{query}"},
-    "macys": {"name": "Macy's", "domain": "macys.com", "search_url": "https://www.macys.com/shop/featured/{query}"},
-    "nordstrom": {"name": "Nordstrom", "domain": "nordstrom.com", "search_url": "https://www.nordstrom.com/sr?keyword={query}"},
-    "saks": {"name": "Saks Fifth Avenue", "domain": "saksfifthavenue.com", "search_url": "https://www.saksfifthavenue.com/search?q={query}"},
-    "uniqlo": {"name": "UNIQLO", "domain": "uniqlo.com", "search_url": "https://www.uniqlo.com/us/en/search?q={query}"},
-    "saks_off": {"name": "Saks OFF 5TH", "domain": "saksoff5th.com", "search_url": "https://www.saksoff5th.com/search?q={query}"},
-    "reformation": {"name": "Reformation", "domain": "thereformation.com", "search_url": "https://www.thereformation.com/search?q={query}"},
-    "everlane": {"name": "Everlane", "domain": "everlane.com", "search_url": "https://www.everlane.com/search?q={query}"},
-    "jcrew": {"name": "J.Crew", "domain": "jcrew.com", "search_url": "https://www.jcrew.com/search?q={query}"},
-    "madewell": {"name": "Madewell", "domain": "madewell.com", "search_url": "https://www.madewell.com/search?q={query}"},
-    "anthropologie": {"name": "Anthropologie", "domain": "anthropologie.com", "search_url": "https://www.anthropologie.com/search?q={query}"},
-    "eloquii": {"name": "ELOQUII", "domain": "eloquii.com", "search_url": "https://www.eloquii.com/search?q={query}"},
-    "girlfriend": {"name": "Girlfriend Collective", "domain": "girlfriend.com", "search_url": "https://girlfriend.com/search?q={query}"},
-    "lululemon": {"name": "Lululemon", "domain": "shop.lululemon.com", "search_url": "https://shop.lululemon.com/search?Ntt={query}"},
-    "aloyoga": {"name": "Alo Yoga", "domain": "aloyoga.com", "search_url": "https://www.aloyoga.com/search?q={query}"},
-    "bandit": {"name": "Bandit Running", "domain": "banditrunning.com", "search_url": "https://banditrunning.com/search?q={query}"},
-    "carbon38": {"name": "Carbon38", "domain": "carbon38.com", "search_url": "https://carbon38.com/search?q={query}"},
-    "pistola": {"name": "Pistola Denim", "domain": "pistoladenim.com", "search_url": "https://pistoladenim.com/search?q={query}"},
-    "frankie": {"name": "The Frankie Shop", "domain": "thefrankieshop.com", "search_url": "https://thefrankieshop.com/search?q={query}"},
-    "aritzia": {"name": "Aritzia", "domain": "aritzia.com", "search_url": "https://www.aritzia.com/us/en/search?q={query}"},
-    "shopbop": {"name": "Shopbop", "domain": "shopbop.com", "search_url": "https://www.shopbop.com/s?keywords={query}"},
-    "wolf_badger": {"name": "Wolf & Badger", "domain": "wolfandbadger.com", "search_url": "https://www.wolfandbadger.com/us/search/?q={query}"},
-    "revolve": {"name": "Revolve", "domain": "revolve.com", "search_url": "https://www.revolve.com/r/search?q={query}"},
-    "farfetch": {"name": "Farfetch", "domain": "farfetch.com", "search_url": "https://www.farfetch.com/shopping/women/search/items.aspx?q={query}"},
-    "sustainable": {"name": "Sustainable", "domain": "thereformation.com", "search_url": "https://www.thereformation.com/search?q={query}"},
+    "express": {"name": "Express", "domain": "express.com", "search_url": "https://www.express.com/s/{query}", "listing_url": "https://www.express.com/mens-clothing/new-arrivals/cat1490006"},
+    "urban_outfitters": {"name": "Urban Outfitters", "domain": "urbanoutfitters.com", "search_url": "https://www.urbanoutfitters.com/search?q={query}", "listing_url": "https://www.urbanoutfitters.com/new-arrivals"},
+    "old_navy": {"name": "Old Navy", "domain": "oldnavy.gap.com", "search_url": "https://oldnavy.gap.com/browse/search.do?searchText={query}", "listing_url": "https://oldnavy.gap.com/browse/category.do?cid=5155"},
+    "asos": {"name": "ASOS", "domain": "asos.com", "search_url": "https://www.asos.com/us/search/?q={query}", "listing_url": "https://www.asos.com/us/men/new-in/cat/?cid=27110"},
+    "us_polo": {"name": "U.S. Polo Assn.", "domain": "uspoloassn.com", "search_url": "https://uspoloassn.com/search?q={query}", "listing_url": "https://uspoloassn.com/collections/new-arrivals"},
+    "garage": {"name": "Garage", "domain": "garageclothing.com", "search_url": "https://www.garageclothing.com/us/search?q={query}", "listing_url": "https://www.garageclothing.com/us/g/clothing/new-arrivals/"},
+    "banana_factory": {"name": "Banana Republic Factory", "domain": "bananarepublicfactory.gapfactory.com", "search_url": "https://bananarepublicfactory.gapfactory.com/browse/search.do?searchText={query}", "listing_url": "https://bananarepublicfactory.gapfactory.com/browse/category.do?cid=1045227"},
+    "hm": {"name": "H&M", "domain": "hm.com", "search_url": "https://www2.hm.com/en_us/search-results.html?q={query}", "listing_url": "https://www2.hm.com/en_us/men/new-arrivals/view-all.html"},
+    "abercrombie": {"name": "Abercrombie & Fitch", "domain": "abercrombie.com", "search_url": "https://www.abercrombie.com/shop/us/search?searchTerm={query}", "listing_url": "https://www.abercrombie.com/shop/us/mens-new-arrivals"},
+    "edikted": {"name": "Edikted", "domain": "edikted.com", "search_url": "https://edikted.com/search?q={query}", "listing_url": "https://edikted.com/collections/new-in"},
+    "hollister": {"name": "Hollister", "domain": "hollisterco.com", "search_url": "https://www.hollisterco.com/shop/us/search?searchTerm={query}", "listing_url": "https://www.hollisterco.com/shop/us/mens-new-arrivals"},
+    "altard_state": {"name": "Altar'd State", "domain": "altardstate.com", "search_url": "https://www.altardstate.com/search?q={query}", "listing_url": "https://www.altardstate.com/as/new-arrivals/clothing/"},
+    "american_eagle": {"name": "American Eagle", "domain": "ae.com", "search_url": "https://www.ae.com/us/en/search/{query}", "listing_url": "https://www.ae.com/us/en/c/men/new-arrivals/cat7730004"},
+    "macys": {"name": "Macy's", "domain": "macys.com", "search_url": "https://www.macys.com/shop/featured/{query}", "listing_url": "https://www.macys.com/shop/mens-clothing/new-arrivals?id=30514"},
+    "nordstrom": {"name": "Nordstrom", "domain": "nordstrom.com", "search_url": "https://www.nordstrom.com/sr?keyword={query}", "listing_url": "https://www.nordstrom.com/browse/men/new-arrivals"},
+    "saks": {"name": "Saks Fifth Avenue", "domain": "saksfifthavenue.com", "search_url": "https://www.saksfifthavenue.com/search?q={query}", "listing_url": "https://www.saksfifthavenue.com/c/men/new-arrivals"},
+    "uniqlo": {"name": "UNIQLO", "domain": "uniqlo.com", "search_url": "https://www.uniqlo.com/us/en/search?q={query}", "listing_url": "https://www.uniqlo.com/us/en/men/new-arrivals"},
+    "saks_off": {"name": "Saks OFF 5TH", "domain": "saksoff5th.com", "search_url": "https://www.saksoff5th.com/search?q={query}", "listing_url": "https://www.saksoff5th.com/c/men/new-arrivals"},
+    "reformation": {"name": "Reformation", "domain": "thereformation.com", "search_url": "https://www.thereformation.com/search?q={query}", "listing_url": "https://www.thereformation.com/new-arrivals"},
+    "everlane": {"name": "Everlane", "domain": "everlane.com", "search_url": "https://www.everlane.com/search?q={query}", "listing_url": "https://www.everlane.com/collections/mens-new-arrivals"},
+    "jcrew": {"name": "J.Crew", "domain": "jcrew.com", "search_url": "https://www.jcrew.com/search?q={query}", "listing_url": "https://www.jcrew.com/r/new-arrivals/men"},
+    "madewell": {"name": "Madewell", "domain": "madewell.com", "search_url": "https://www.madewell.com/search?q={query}", "listing_url": "https://www.madewell.com/mens/new-arrivals"},
+    "anthropologie": {"name": "Anthropologie", "domain": "anthropologie.com", "search_url": "https://www.anthropologie.com/search?q={query}", "listing_url": "https://www.anthropologie.com/new-arrivals"},
+    "eloquii": {"name": "ELOQUII", "domain": "eloquii.com", "search_url": "https://www.eloquii.com/search?q={query}", "listing_url": "https://www.eloquii.com/new-arrivals"},
+    "girlfriend": {"name": "Girlfriend Collective", "domain": "girlfriend.com", "search_url": "https://girlfriend.com/search?q={query}", "listing_url": "https://girlfriend.com/collections/new-arrivals"},
+    "lululemon": {"name": "Lululemon", "domain": "shop.lululemon.com", "search_url": "https://shop.lululemon.com/search?Ntt={query}", "listing_url": "https://shop.lululemon.com/c/whats-new/_/N-1z0xk6o"},
+    "aloyoga": {"name": "Alo Yoga", "domain": "aloyoga.com", "search_url": "https://www.aloyoga.com/search?q={query}", "listing_url": "https://www.aloyoga.com/collections/new-arrivals"},
+    "bandit": {"name": "Bandit Running", "domain": "banditrunning.com", "search_url": "https://banditrunning.com/search?q={query}", "listing_url": "https://banditrunning.com/collections/new-arrivals"},
+    "carbon38": {"name": "Carbon38", "domain": "carbon38.com", "search_url": "https://carbon38.com/search?q={query}", "listing_url": "https://carbon38.com/collections/new-arrivals"},
+    "pistola": {"name": "Pistola Denim", "domain": "pistoladenim.com", "search_url": "https://pistoladenim.com/search?q={query}", "listing_url": "https://pistoladenim.com/collections/new-arrivals"},
+    "frankie": {"name": "The Frankie Shop", "domain": "thefrankieshop.com", "search_url": "https://thefrankieshop.com/search?q={query}", "listing_url": "https://thefrankieshop.com/collections/new-arrivals-men"},
+    "aritzia": {"name": "Aritzia", "domain": "aritzia.com", "search_url": "https://www.aritzia.com/us/en/search?q={query}", "listing_url": "https://www.aritzia.com/us/en/new-arrivals"},
+    "shopbop": {"name": "Shopbop", "domain": "shopbop.com", "search_url": "https://www.shopbop.com/s?keywords={query}", "listing_url": "https://www.shopbop.com/clothing-new-arrivals/br/v=1/13444.htm"},
+    "wolf_badger": {"name": "Wolf & Badger", "domain": "wolfandbadger.com", "search_url": "https://www.wolfandbadger.com/us/search/?q={query}", "listing_url": "https://www.wolfandbadger.com/us/category/men/new-in/"},
+    "revolve": {"name": "Revolve", "domain": "revolve.com", "search_url": "https://www.revolve.com/r/search?q={query}", "listing_url": "https://www.revolve.com/men/new-arrivals/br/662866/"},
+    "farfetch": {"name": "Farfetch", "domain": "farfetch.com", "search_url": "https://www.farfetch.com/shopping/women/search/items.aspx?q={query}", "listing_url": "https://www.farfetch.com/shopping/men/new-in/items.aspx"},
+    "sustainable": {"name": "Sustainable", "domain": "thereformation.com", "search_url": "https://www.thereformation.com/search?q={query}", "listing_url": "https://www.thereformation.com/new-arrivals"},
 }
+
 
 class ScrapingService:
     """Targeted and Fallback scraping."""
@@ -145,10 +146,15 @@ class ScrapingService:
         logger.info(f"✅ Scraped {len(products)} products from {len(effective_sources)} retailers")
         return products, effective_sources
 
-    async def _scrape_single_store(self, key: str, query: str) -> List[Dict[str, Any]]:
+    async def _scrape_single_store(self, key: str, query: Optional[str] = None, use_listing: bool = False) -> List[Dict[str, Any]]:
         """Scrapes a single fashion store using generic e-commerce patterns."""
         config = FASHION_RETAILERS[key]
-        url = config["search_url"].format(query=quote_plus(query))
+        
+        if use_listing:
+            url = config.get("listing_url") or f"https://{config['domain']}"
+            logger.info(f"📋 BROAD SCRAPE: {config['name']} from {url}")
+        else:
+            url = config["search_url"].format(query=quote_plus(query or ""))
         
         try:
             # Using curl_cffi to impersonate Chrome 124 to bypass Cloudflare/TLS blocks

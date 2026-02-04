@@ -79,12 +79,10 @@ export default function Sidebar({
             className="cursor-pointer flex items-center gap-3"
             onClick={onLogoClick}
           >
-            <Image
-              src="/fluidorbitlogo.jpg"
+            <img
+              src="/fluid-orbit-infinity-logo.png"
               alt="Fluid Orbit"
-              width={36}
-              height={36}
-              className="rounded-full"
+              className="w-9 h-9 object-contain"
             />
             <AnimatePresence>
               {expanded && (

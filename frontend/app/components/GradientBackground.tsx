@@ -25,12 +25,10 @@ export default function GradientBackground() {
         }}
       />
       <div className="absolute top-8 left-8 flex items-center gap-4">
-        <Image
-          src="/fluidorbitlogo.jpg"
+        <img
+          src="/fluid-orbit-infinity-logo.png"
           alt="Fluid Orbit Logo"
-          width={60}
-          height={60}
-          className="rounded-lg"
+          className="h-[60px] w-auto object-contain"
         />
         <h1 className="text-4xl font-bold text-black">
           Fluid Orbit

@@ -112,14 +112,11 @@ class InventoryScrapeService:
     
     # Scrape configuration
     CONCURRENT_RETAILERS = 35  # Scrape all retailers simultaneously
-    PRODUCTS_PER_RETAILER = 20  # Max products to scrape per retailer
+    PRODUCTS_PER_RETAILER = 50  # Increased from 20 to capture more from listing pages
     EMBEDDING_BATCH_SIZE = 50  # Batch size for embedding generation
     
-    # Default search queries per category
+    # Default search queries per category (Deprecated for inventory jobs, using listing_url instead)
     DEFAULT_QUERIES = [
-        "trending fashion",
-        "popular clothing",
-        "best sellers",
         "new arrivals",
     ]
     
@@ -193,23 +190,18 @@ class InventoryScrapeService:
         search_queries = queries or self.DEFAULT_QUERIES
         
         try:
-            # Run multiple queries for this retailer
-            for query in search_queries:
-                try:
-                    products = await self.scraping_service._scrape_single_store(
-                        retailer_key, query
-                    )
-                    if products:
-                        all_products.extend(products)
-                        
-                    # Limit products per retailer
-                    if len(all_products) >= self.PRODUCTS_PER_RETAILER:
-                        all_products = all_products[:self.PRODUCTS_PER_RETAILER]
-                        break
-                        
-                except Exception as e:
-                    logger.debug(f"Query '{query}' failed for {retailer_name}: {e}")
-                    continue
+            # BROAD SCRAPE: Use listing_url instead of queries for inventory
+            # This ensures we get a general index of products not tied to keywords
+            products = await self.scraping_service._scrape_single_store(
+                retailer_key, use_listing=True
+            )
+            
+            if products:
+                all_products.extend(products)
+                
+                # Limit products per retailer
+                if len(all_products) >= self.PRODUCTS_PER_RETAILER:
+                    all_products = all_products[:self.PRODUCTS_PER_RETAILER]
             
             duration = (datetime.utcnow() - start_time).total_seconds()
             
