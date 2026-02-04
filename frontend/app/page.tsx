@@ -303,15 +303,8 @@ export default function Home() {
       // Also ensure localStorage is clean for the new user
       localStorage.removeItem('chat_sessions');
 
-      // Start the flow: loading -> skeleton -> home
-      setAppState('loading');
-
-      setTimeout(() => {
-        setAppState('skeleton');
-        setTimeout(() => {
-          setAppState('home');
-        }, 3000);
-      }, 2500);
+      // Start the flow: home directly
+      setAppState('home');
     } catch (err: any) {
       setError(err.message || 'Sign up failed');
       console.error('Sign up error:', err);
@@ -379,15 +372,8 @@ export default function Home() {
         console.log('Could not fetch user data or sessions:', fetchError);
       }
 
-      // Start the flow: loading -> skeleton -> home
-      setAppState('loading');
-
-      setTimeout(() => {
-        setAppState('skeleton');
-        setTimeout(() => {
-          setAppState('home');
-        }, 3000);
-      }, 2500);
+      // Start the flow: home directly
+      setAppState('home');
     } catch (err: any) {
       setError(err.message || 'Sign in failed');
       console.error('Sign in error:', err);

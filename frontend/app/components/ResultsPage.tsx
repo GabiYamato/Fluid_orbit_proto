@@ -398,7 +398,7 @@ export default function ResultsPage({
           damping: 20,
           delay: 0.1
         }}
-        className="fixed bottom-12 md:bottom-8 left-1/2 md:left-[calc(50%+2.5rem)] -translate-x-1/2 z-30 w-full max-w-[40rem] px-4 md:px-0"
+        className="fixed bottom-12 md:bottom-8 left-1/2 -translate-x-1/2 z-30 w-full max-w-[40rem] px-4 md:px-0"
       >
         <motion.div
           whileHover={{ scale: 1.01 }}
@@ -407,7 +407,7 @@ export default function ResultsPage({
         >
           <div className="relative flex items-center pl-4 pr-2 py-2">
             <textarea
-              placeholder="Message..."
+              placeholder="Search for products..."
               rows={1}
               style={{ minHeight: '44px' }}
               onKeyDown={(e) => {
@@ -498,7 +498,7 @@ export default function ResultsPage({
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
                                 )}
                             </div>
-                            <span className="font-semibold text-sm">{isCopied ? 'Copied!' : 'Copy Link'}</span>
+                            <span className="font-semibold text-sm">{isCopied ? 'Copied!' : 'Copy entire conversation link'}</span>
                         </div>
                     </button>
 
