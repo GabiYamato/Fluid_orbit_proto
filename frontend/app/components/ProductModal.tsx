@@ -131,19 +131,11 @@ export default function ProductModal({
             {/* Header */}
             <div className="flex items-center justify-between p-4 md:px-8 md:py-6 border-b border-gray-100 dark:border-gray-800 shrink-0">
               <div className="flex items-center gap-4">
-                <button
-                  onClick={onClose}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
-                >
-                  <svg className="w-6 h-6 text-gray-900 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-                <div className="hidden sm:flex items-center gap-2 text-gray-300 dark:text-gray-600">
-                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="flex items-center gap-1.5 text-gray-400 dark:text-gray-500">
+                   <svg className="w-5 h-5 hover:text-black dark:hover:text-white cursor-pointer transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                    </svg>
-                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   <svg className="w-5 h-5 hover:text-black dark:hover:text-white cursor-pointer transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                    </svg>
                 </div>
@@ -155,11 +147,11 @@ export default function ProductModal({
 
               <div className="flex items-center gap-2">
                 <button
-                  onClick={handleShare}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                  onClick={onClose}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors group"
                 >
-                  <svg className="w-5 h-5 text-gray-900 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  <svg className="w-6 h-6 text-gray-900 dark:text-white group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
@@ -316,23 +308,27 @@ export default function ProductModal({
                 </div>
 
                 {/* Policies placeholders from design */}
-                <div className="border-t border-gray-100 dark:border-gray-800 pt-6 space-y-4">
-                   <div className="flex items-center justify-between group cursor-pointer">
+                <div className="border-t border-gray-100 dark:border-gray-800 pt-6 flex flex-col sm:flex-row gap-4">
+                   <div className="flex-1 flex items-center justify-between p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/40 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group cursor-pointer border border-transparent hover:border-gray-200 dark:hover:border-white/5">
                       <div className="flex items-center gap-3">
-                         <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                         </svg>
+                         <div className="p-2 bg-white dark:bg-gray-900 rounded-xl shadow-sm text-gray-500">
+                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                           </svg>
+                         </div>
                          <span className="text-sm font-bold">Shipping Policy</span>
                       </div>
                       <svg className="w-4 h-4 text-gray-300 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
                    </div>
-                   <div className="flex items-center justify-between group cursor-pointer">
+                   <div className="flex-1 flex items-center justify-between p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/40 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group cursor-pointer border border-transparent hover:border-gray-200 dark:hover:border-white/5">
                       <div className="flex items-center gap-3">
-                         <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3" />
-                         </svg>
+                         <div className="p-2 bg-white dark:bg-gray-900 rounded-xl shadow-sm text-gray-500">
+                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3" />
+                           </svg>
+                         </div>
                          <span className="text-sm font-bold">Refund Policy</span>
                       </div>
                       <svg className="w-4 h-4 text-gray-300 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
