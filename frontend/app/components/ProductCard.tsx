@@ -40,6 +40,7 @@ interface ProductCardProps {
   onUnsave?: (productId: string) => void;
   isSaved?: boolean;
   savedProductId?: string;
+  onOpenModal?: (product: Product) => void;
 }
 
 // Skeleton loader for product cards
@@ -89,6 +90,7 @@ export default function ProductCard({
   onUnsave,
   isSaved = false,
   savedProductId,
+  onOpenModal,
 }: ProductCardProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [localSaved, setLocalSaved] = useState(isSaved);
@@ -166,7 +168,9 @@ export default function ProductCard({
   const hasValidUrl = displayUrl.startsWith('http://') || displayUrl.startsWith('https://');
 
   const handleClick = () => {
-    if (hasValidUrl) {
+    if (onOpenModal) {
+      onOpenModal(productData as Product);
+    } else if (hasValidUrl) {
       window.open(displayUrl, '_blank', 'noopener,noreferrer');
     } else {
       console.warn('[ProductCard] No valid URL for product:', displayTitle, 'Raw URL:', rawUrl);
@@ -238,43 +242,48 @@ export default function ProductCard({
 
         {/* Content Section */}
         <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
-          <div className="space-y-1">
-            {/* Title and Rating */}
-            <div className="flex items-start gap-2">
-              <h3 className="font-semibold text-sm text-gray-900 dark:text-white line-clamp-1 leading-tight flex-1">
-                {displayTitle}
-              </h3>
-              {displayRating > 0 && (
-                <div className="flex items-center gap-0.5 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded text-[10px] font-bold text-amber-700 dark:text-amber-400 shrink-0">
-                  <span>{displayRating.toFixed(1)}</span>
-                  <span>★</span>
-                </div>
-              )}
+            {/* Marketplace and Title */}
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{displaySource || 'Marketplace'}</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <h3 className="font-semibold text-sm text-gray-900 dark:text-white line-clamp-1 leading-tight flex-1">
+                  {displayTitle}
+                </h3>
+                {displayRating > 0 && (
+                  <div className="flex items-center gap-0.5 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded text-[10px] font-bold text-amber-700 dark:text-amber-400 shrink-0">
+                    <span>{displayRating.toFixed(1)}</span>
+                    <span>★</span>
+                    {productData.review_count !== undefined && (
+                      <span className="text-[9px] opacity-60 ml-0.5 font-medium">({productData.review_count})</span>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Description */}
             <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-3 leading-relaxed">
               {displayDescription}
             </p>
+            {/* Footer: Price and Link */}
+            <div className="flex items-center justify-between mt-1">
+              <p className="text-sm font-bold text-gray-900 dark:text-white">
+                {formatPrice(displayPrice)}
+              </p>
+              {hasValidUrl ? (
+                <button className="text-xs font-medium text-orange-500 hover:text-orange-600 flex items-center gap-1 transition-colors">
+                  Product Details
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </button>
+              ) : (
+                <span className="text-[10px] text-gray-400">No link</span>
+              )}
+            </div>
           </div>
-
-          {/* Footer: Price and Link */}
-          <div className="flex items-center justify-between mt-1">
-            <p className="text-sm font-bold text-gray-900 dark:text-white">
-              {formatPrice(displayPrice)}
-            </p>
-            {hasValidUrl ? (
-              <button className="text-xs font-medium text-orange-500 hover:text-orange-600 flex items-center gap-1 transition-colors">
-                Product Details
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-              </button>
-            ) : (
-              <span className="text-[10px] text-gray-400">No link</span>
-            )}
-          </div>
-        </div>
       </motion.div>
     );
   }
@@ -335,8 +344,11 @@ export default function ProductCard({
 
       {/* Content Section */}
       <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
-        <div className="space-y-1">
-          {/* Title and Rating */}
+        <div className="space-y-0.5">
+          {/* Marketplace and Title */}
+          <div className="flex items-center gap-1.5">
+             <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">{displaySource || 'Marketplace'}</span>
+          </div>
           <div className="flex items-start gap-2">
             <h3 className="font-semibold text-xs text-gray-900 dark:text-white line-clamp-1 leading-tight flex-1">
               {displayTitle}
@@ -345,16 +357,17 @@ export default function ProductCard({
               <div className="flex items-center gap-0.5 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded text-[10px] font-bold text-amber-700 dark:text-amber-400 shrink-0">
                 <span>{displayRating.toFixed(1)}</span>
                 <span>★</span>
+                {productData.review_count !== undefined && (
+                  <span className="text-[9px] opacity-60 ml-0.5 font-medium">({productData.review_count})</span>
+                )}
               </div>
             )}
           </div>
-
           {/* Description */}
           <p className="text-[11px] text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">
             {displayDescription}
           </p>
         </div>
-
         {/* Footer: Price and Link */}
         <div className="flex items-center justify-between">
           <p className="text-sm font-bold text-gray-900 dark:text-white">
