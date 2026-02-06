@@ -17,12 +17,10 @@ export default function LoadingScreen() {
         }}
         className="mb-8"
       >
-        <Image
-          src="/fluidorbitlogo.jpg"
+        <img
+          src="/fluid-orbit-infinity-logo.png"
           alt="Fluid Orbit Logo"
-          width={120}
-          height={120}
-          className="rounded-full"
+          className="w-[120px] h-[120px] object-contain"
         />
       </motion.div>
       

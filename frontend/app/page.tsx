@@ -46,6 +46,14 @@ export default function Home() {
   }>>([]);
   const [currentQuery, setCurrentQuery] = useState<string>('');
   const [isStreaming, setIsStreaming] = useState(false);
+  
+  // Ref to track latest chat history for async operations (prevent stale closures)
+  const chatHistoryRef = useRef(chatHistory);
+  
+  useEffect(() => {
+    chatHistoryRef.current = chatHistory;
+  }, [chatHistory]);
+
   const [chatSessions, setChatSessions] = useState<Array<{
     id: string;
     timestamp: string;
@@ -163,9 +171,10 @@ export default function Home() {
 
   // Save current chat session (creates new or updates existing)
   const saveCurrentChatSession = async (forceNew: boolean = false) => {
-    if (chatHistory.length === 0) return;
+    const currentHistory = chatHistoryRef.current;
+    if (currentHistory.length === 0) return;
 
-    const firstUserMessage = chatHistory.find(msg => msg.role === 'user');
+    const firstUserMessage = currentHistory.find(msg => msg.role === 'user');
     if (!firstUserMessage) return;
 
     // Use existing session ID or create new one
@@ -174,7 +183,7 @@ export default function Home() {
     const sessionData = {
       id: sessionId,
       timestamp: new Date().toISOString(),
-      messages: chatHistory.filter(msg => !msg.error),
+      messages: currentHistory.filter(msg => !msg.error),
       preview: firstUserMessage.content.slice(0, 50) + (firstUserMessage.content.length > 50 ? '...' : ''),
     };
 
@@ -281,16 +290,21 @@ export default function Home() {
       setUsername('');
       setDisplayName('');
       setEmail(email);
+      
+      // Reset sessions state before loading user's data
+      setChatSessions([]);
+      setChatHistory([]);
+      setCurrentSessionId(null);
+      
+      // Clear any existing chat sessions from state
+      setChatSessions([]);
+      setChatHistory([]);
+      setCurrentSessionId(null);
+      // Also ensure localStorage is clean for the new user
+      localStorage.removeItem('chat_sessions');
 
-      // Start the flow: loading -> skeleton -> home
-      setAppState('loading');
-
-      setTimeout(() => {
-        setAppState('skeleton');
-        setTimeout(() => {
-          setAppState('home');
-        }, 3000);
-      }, 2500);
+      // Start the flow: home directly
+      setAppState('home');
     } catch (err: any) {
       setError(err.message || 'Sign up failed');
       console.error('Sign up error:', err);
@@ -324,6 +338,11 @@ export default function Home() {
       setUsername(customName);
       setDisplayName(customName);
       setEmail(email);
+      
+      // Reset sessions state before loading user's data
+      setChatSessions([]);
+      setChatHistory([]);
+      setCurrentSessionId(null);
 
       // Fetch user info and chat sessions from backend
       try {
@@ -353,15 +372,8 @@ export default function Home() {
         console.log('Could not fetch user data or sessions:', fetchError);
       }
 
-      // Start the flow: loading -> skeleton -> home
-      setAppState('loading');
-
-      setTimeout(() => {
-        setAppState('skeleton');
-        setTimeout(() => {
-          setAppState('home');
-        }, 3000);
-      }, 2500);
+      // Start the flow: home directly
+      setAppState('home');
     } catch (err: any) {
       setError(err.message || 'Sign in failed');
       console.error('Sign in error:', err);
@@ -401,12 +413,17 @@ export default function Home() {
     localStorage.removeItem('user_email');
     localStorage.removeItem('user_name');
     localStorage.removeItem('user_custom_name');
+    
+    // CRITICAL: Clear chat sessions from local storage to prevent leakage to next user
+    localStorage.removeItem('chat_sessions');
 
     setAccessToken(null);
     setAppState('auth');
     setUsername('');
     setEmail('user@example.com');
     setChatHistory([]);
+    setChatSessions([]); // Clear current session list
+    setCurrentSessionId(null);
   };
 
   const handleSearch = async (query: string, options?: { hideUserMessage?: boolean }) => {
@@ -576,9 +593,11 @@ export default function Home() {
 
       // Auto-save the session to backend after each successful query
       // Use setTimeout to ensure state has updated with final message content
+      // Auto-save the session to backend after each successful query
+      // Use setTimeout to ensure state has updated with final message content (via ref)
       setTimeout(() => {
         saveCurrentChatSession();
-      }, 100);
+      }, 500);
 
     } catch (error: any) {
       console.error('Search error:', error);
@@ -677,7 +696,7 @@ export default function Home() {
   const handleLogoClick = () => {
     saveCurrentChatSession();
     setAppState('home');
-    setChatHistory([]);
+    setChatHistory([]); // This will update the ref, but save happened before
     setCurrentQuery('');
     setCurrentSessionId(null);
   };

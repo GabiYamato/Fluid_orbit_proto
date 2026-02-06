@@ -112,14 +112,11 @@ class InventoryScrapeService:
     
     # Scrape configuration
     CONCURRENT_RETAILERS = 35  # Scrape all retailers simultaneously
-    PRODUCTS_PER_RETAILER = 20  # Max products to scrape per retailer
+    PRODUCTS_PER_RETAILER = 50  # Increased from 20 to capture more from listing pages
     EMBEDDING_BATCH_SIZE = 50  # Batch size for embedding generation
     
-    # Default search queries per category
+    # Default search queries per category (Deprecated for inventory jobs, using listing_url instead)
     DEFAULT_QUERIES = [
-        "trending fashion",
-        "popular clothing",
-        "best sellers",
         "new arrivals",
     ]
     

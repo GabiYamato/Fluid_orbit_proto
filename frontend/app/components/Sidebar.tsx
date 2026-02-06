@@ -59,6 +59,7 @@ export default function Sidebar({
   const [localExpanded, setLocalExpanded] = useState(isExpanded);
   const expanded = onToggleExpand ? isExpanded : localExpanded;
   const toggleExpand = onToggleExpand || (() => setLocalExpanded(!localExpanded));
+  const [chatsVisible, setChatsVisible] = useState(true);
 
   // Show all past chats (like ChatGPT)
   const allChats = chatSessions;
@@ -79,12 +80,10 @@ export default function Sidebar({
             className="cursor-pointer flex items-center gap-3"
             onClick={onLogoClick}
           >
-            <Image
-              src="/fluidorbitlogo.jpg"
+            <img
+              src="/fluid-orbit-infinity-logo.png"
               alt="Fluid Orbit"
-              width={36}
-              height={36}
-              className="rounded-full"
+              className="w-9 h-9 object-contain"
             />
             <AnimatePresence>
               {expanded && (
@@ -192,61 +191,89 @@ export default function Sidebar({
           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${!expanded ? 'justify-center' : ''}`}
           title="Search conversations"
         >
-          <svg className="w-5 h-5 text-gray-700 dark:text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+          <div className="relative inline-flex items-center justify-center">
+            <svg className="w-5 h-5 text-gray-700 dark:text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            {!expanded && chatSessions.length > 0 && (
+              <span className="absolute -top-1.5 -right-2 text-black dark:text-white text-[10px] font-bold">
+                {chatSessions.length > 9 ? '9+' : chatSessions.length}
+              </span>
+            )}
+          </div>
           {expanded && <span className="text-sm text-gray-700 dark:text-gray-300">Search conversations</span>}
-          {!expanded && chatSessions.length > 0 && (
-            <span className="absolute right-1 w-4 h-4 bg-black dark:bg-white text-white dark:text-black text-xs rounded-full flex items-center justify-center">
-              {chatSessions.length > 9 ? '9+' : chatSessions.length}
-            </span>
-          )}
         </motion.button>
       </div>
 
       {/* Recent Chats Section */}
       {expanded && allChats.length > 0 && (
-        <div className="flex-1 overflow-y-auto px-3 mt-4">
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 px-3">
-            Your Chats
-          </p>
-          <div className="space-y-1">
-            {allChats.map((session: ChatSession) => (
-              <motion.div
-                key={session.id}
-                whileHover={{ backgroundColor: 'rgba(0,0,0,0.05)' }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => onRestoreSession?.(session.id)}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-left group cursor-pointer"
-                role="button"
-                tabIndex={0}
+        <div className="flex-1 overflow-y-auto px-3 mt-4 scrollbar-hide">
+          <button 
+            onClick={() => setChatsVisible(!chatsVisible)}
+            className="w-full flex items-center justify-between py-1 px-3 mb-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md transition-colors group"
+          >
+            <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
+              Your Chats
+            </span>
+            <svg 
+              className={`w-3 h-3 text-gray-400 transition-transform duration-200 ${chatsVisible ? 'rotate-180' : ''}`} 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          
+          <AnimatePresence initial={false}>
+            {chatsVisible && (
+              <motion.div 
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
               >
-                <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-700 dark:text-gray-300 truncate">
-                    {session.preview}
-                  </p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500">
-                    {new Date(session.timestamp).toLocaleDateString()}
-                  </p>
+                <div className="space-y-1 pb-2">
+                  {allChats.map((session: ChatSession) => (
+                    <motion.div
+                      key={session.id}
+                      whileHover={{ backgroundColor: 'rgba(0,0,0,0.05)' }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => onRestoreSession?.(session.id)}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-left group cursor-pointer"
+                      role="button"
+                      tabIndex={0}
+                    >
+                      <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      </svg>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-medium text-gray-700 dark:text-gray-300 truncate">
+                          {session.preview}
+                        </p>
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                          {new Date(session.timestamp).toLocaleDateString()}
+                        </p>
+                      </div>
+                      {/* Delete button on hover */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteSession?.(session.id);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-all flex-shrink-0"
+                      >
+                        <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </motion.div>
+                  ))}
                 </div>
-                {/* Delete button on hover */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDeleteSession?.(session.id);
-                  }}
-                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-all flex-shrink-0"
-                >
-                  <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
               </motion.div>
-            ))}
-          </div>
+            )}
+          </AnimatePresence>
         </div>
       )}
 

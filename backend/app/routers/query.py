@@ -129,12 +129,12 @@ async def stream_query_products(
         if request.history:
             yield "event: status\ndata: Understanding context...\n\n"
             
-        history_dicts = [h.model_dump() for h in request.history]
-        refined_query = await rag_service.refine_query(request.query, history_dicts)
+        # DIRECT SEARCH: Skip LLM refinement as requested
+        refined_query = request.query
         
-        logger.info(f"   Refined query: '{refined_query}'")
+        logger.info(f"   Using direct query: '{refined_query}'")
         
-        # Parse intent from refined query
+        # Parse intent from query
         parsed_intent = await query_service.parse_intent(refined_query)
         
         logger.info(f"   Parsed intent: category={parsed_intent.category}, budget={parsed_intent.budget_max}")

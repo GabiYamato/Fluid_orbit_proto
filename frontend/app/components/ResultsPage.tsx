@@ -1,8 +1,9 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import ProductCard, { ProductCardSkeleton } from './ProductCard';
+import ProductModal from './ProductModal';
 import Sidebar from './Sidebar';
 import ProfilePopup from './ProfilePopup';
 import PersonalizationPopup from './PersonalizationPopup';
@@ -101,7 +102,14 @@ export default function ResultsPage({
   const [showEmailUpdate, setShowEmailUpdate] = useState(false);
   const [showPasswordUpdate, setShowPasswordUpdate] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [showSharePopup, setShowSharePopup] = useState(false);
+  const [isCopied, setIsCopied] = useState(false); // State for copy feedback
   const [expandedProducts, setExpandedProducts] = useState<Record<number, number>>({});
+  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+  const [isSelectingConvo, setIsSelectingConvo] = useState(false);
+  const [shareStep, setShareStep] = useState<'initial' | 'selection' | 'platform'>('initial');
+  const [selectedConvoIndex, setSelectedConvoIndex] = useState<number | null>(null);
+  const [shareEmail, setShareEmail] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Saved products state - maps affiliate_url to saved product ID
@@ -396,7 +404,7 @@ export default function ResultsPage({
           damping: 20,
           delay: 0.1
         }}
-        className="fixed bottom-12 md:bottom-8 left-1/2 md:left-[calc(50%+2.5rem)] -translate-x-1/2 z-30 w-full max-w-[40rem] px-4 md:px-0"
+        className="fixed bottom-12 md:bottom-8 left-1/2 -translate-x-1/2 z-30 w-full max-w-[40rem] px-4 md:px-0"
       >
         <motion.div
           whileHover={{ scale: 1.01 }}
@@ -405,7 +413,7 @@ export default function ResultsPage({
         >
           <div className="relative flex items-center pl-4 pr-2 py-2">
             <textarea
-              placeholder="Message..."
+              placeholder="Shop Anything..."
               rows={1}
               style={{ minHeight: '44px' }}
               onKeyDown={(e) => {
@@ -446,26 +454,186 @@ export default function ResultsPage({
         className="flex-1 pb-32 md:pb-24 hidden md:block" // Removed pt-20
       >
         {/* Header - Sticky Top */}
-        <div className="sticky top-0 h-14 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md z-40 flex items-center justify-between px-4 sm:px-6 md:px-8 border-b border-gray-200 dark:border-gray-800 mb-6 transition-all duration-300">
+        <div className="sticky top-0 h-14 bg-white/10 dark:bg-gray-900/10 backdrop-blur-xl z-50 flex items-center justify-between px-4 sm:px-6 md:px-8 border-b border-white/10 dark:border-gray-800/10 mb-6 transition-all duration-300">
           <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 p-2 rounded-lg transition-colors">
-            <span className="font-semibold text-gray-700 dark:text-gray-200 text-sm">ShopGPT 4.0</span>
+            <img
+              src="/fluid-orbit-infinity-logo.png"
+              alt="Fluid Orbit"
+              className="w-9 h-9 object-contain"
+            /><span className="font-semibold text-gray-700 dark:text-gray-200 text-sm">Fluid-orbit</span>
             <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </div>
 
           <div className="flex items-center gap-2">
-            <button className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-              </svg>
-              Share
-            </button>
-            <button className="p-1.5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-              </svg>
-            </button>
+            {/* Share Dropdown */}
+            <div className="relative">
+              <button 
+                onClick={() => setShowSharePopup(!showSharePopup)}
+                className="flex items-center justify-center p-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+                title="Share"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+              </button>
+
+               {/* Share Popup Content */}
+              {showSharePopup && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  className="absolute right-2 top-full mt-4 w-72 bg-white/95 dark:bg-gray-900/98 backdrop-blur-2xl border border-gray-200 dark:border-white/10 rounded-3xl shadow-[0_12px_40px_0_rgba(0,0,0,0.15)] p-4 z-[60] text-black dark:text-white"
+                >
+                    <AnimatePresence mode="wait">
+                      {shareStep === 'initial' && (
+                        <motion.div
+                          key="initial"
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 10 }}
+                        >
+                          <button 
+                              onClick={() => {
+                                  navigator.clipboard.writeText(window.location.href);
+                                  setIsCopied(true);
+                                  setTimeout(() => setIsCopied(false), 2000);
+                              }}
+                              className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors group mb-3 border border-transparent hover:border-gray-200 dark:hover:border-white/10"
+                          >
+                              <div className="flex items-center gap-3">
+                                  <div className={`p-2.5 rounded-xl transition-all duration-300 ${isCopied ? 'bg-green-500/20 text-green-600' : 'bg-gradient-to-br from-blue-500/20 to-purple-500/20 text-blue-600 dark:text-blue-400'}`}>
+                                      {isCopied ? (
+                                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                      ) : (
+                                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                                      )}
+                                  </div>
+                                  <span className="font-semibold text-sm">{isCopied ? 'Copied!' : 'Copy entire conversation'}</span>
+                              </div>
+                          </button>
+
+                          <div className="mb-4 p-3 bg-black/5 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10">
+                               <div className="flex items-center gap-2 mb-2">
+                                   <span className="text-[10px] font-bold opacity-70 uppercase tracking-wider">Share via Email</span>
+                               </div>
+                               <div className="flex gap-2 bg-white dark:bg-black/20 p-1 rounded-xl border border-gray-200 dark:border-white/5">
+                                   <input 
+                                     type="email" 
+                                     placeholder="Enter email..." 
+                                     value={shareEmail}
+                                     onChange={(e) => setShareEmail(e.target.value)}
+                                     className="min-w-0 flex-1 bg-transparent px-2 text-sm focus:outline-none text-gray-800 dark:text-gray-200 placeholder-gray-500" 
+                                   />
+                                   <button 
+                                     onClick={() => {
+                                       if (shareEmail) {
+                                         window.location.href = `mailto:${shareEmail}?subject=Check out this search on Fluid Orbit&body=${window.location.href}`;
+                                       }
+                                     }}
+                                     className="p-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-transform active:scale-95 shadow-lg shadow-blue-500/30"
+                                   >
+                                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                                   </button>
+                               </div>
+                          </div>
+
+                          <button 
+                            onClick={() => setShareStep('selection')}
+                            className="w-full flex items-center justify-between p-3 rounded-2xl bg-black dark:bg-white text-white dark:text-black hover:opacity-90 transition-opacity font-semibold shadow-lg"
+                          >
+                              <span className="text-sm">Select conversation</span>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                          </button>
+                        </motion.div>
+                      )}
+
+                      {shareStep === 'selection' && (
+                        <motion.div
+                          key="selection"
+                          initial={{ opacity: 0, x: 10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -10 }}
+                        >
+                          <div className="flex items-center gap-2 mb-3">
+                            <button onClick={() => setShareStep('initial')} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                            </button>
+                            <span className="font-bold text-sm">Select a message</span>
+                          </div>
+                          <div className="max-h-64 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                            {chatHistory.filter(m => m.role === 'user').map((msg, i) => (
+                              <button
+                                key={i}
+                                onClick={() => {
+                                  setSelectedConvoIndex(i);
+                                  setShareStep('platform');
+                                }}
+                                className="w-full text-left p-3 rounded-xl border border-gray-100 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group"
+                              >
+                                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Conversation {i + 1}</p>
+                                <p className="text-sm line-clamp-2 text-gray-800 dark:text-gray-200">{msg.content}</p>
+                              </button>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+
+                      {shareStep === 'platform' && (
+                        <motion.div
+                          key="platform"
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                        >
+                          <div className="flex items-center gap-2 mb-4">
+                            <button onClick={() => setShareStep('selection')} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                            </button>
+                            <span className="font-bold text-sm">Where to share?</span>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-3">
+                            <button 
+                              onClick={() => {
+                                const userMsg = chatHistory.filter(m => m.role === 'user')[selectedConvoIndex!];
+                                const aiMsg = chatHistory[chatHistory.indexOf(userMsg) + 1];
+                                const text = `Search: ${userMsg.content}\n\nResult: ${aiMsg?.content || ''}\n\nShared via Fluid Orbit`;
+                                window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                              }}
+                              className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-green-500/10 hover:bg-green-500/20 transition-colors group border border-green-500/20"
+                            >
+                              <div className="w-10 h-10 bg-green-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-green-500/20 group-hover:scale-110 transition-transform">
+                                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.72.937 3.659 1.43 5.632 1.43h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                              </div>
+                              <span className="text-xs font-bold text-green-700 dark:text-green-400">WhatsApp</span>
+                            </button>
+                            
+                            <button 
+                              onClick={() => {
+                                const userMsg = chatHistory.filter(m => m.role === 'user')[selectedConvoIndex!];
+                                const aiMsg = chatHistory[chatHistory.indexOf(userMsg) + 1];
+                                const text = `Search: ${userMsg.content}\n\nResult: ${aiMsg?.content || ''}\n\nShared via Fluid Orbit`;
+                                navigator.clipboard.writeText(text);
+                                alert('Snippet copied to clipboard!');
+                                setShareStep('initial');
+                              }}
+                              className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-blue-500/10 hover:bg-blue-500/20 transition-colors group border border-blue-500/20"
+                            >
+                              <div className="w-10 h-10 bg-blue-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 group-hover:scale-110 transition-transform">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
+                              </div>
+                              <span className="text-xs font-bold text-blue-700 dark:text-blue-400">Copy Text</span>
+                            </button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                </motion.div>
+              )}
+            </div>
+
           </div>
         </div>
         {/* Chat History Section */}
@@ -502,8 +670,8 @@ export default function ResultsPage({
                   <div className="max-w-[80%] rounded-2xl p-4 shadow-md bg-black dark:bg-white text-white dark:text-black">
                     <p className="whitespace-pre-wrap">{message.content}</p>
                     {message.timestamp && (
-                      <p className="text-xs mt-2 text-gray-300 dark:text-gray-600">
-                        {new Date(message.timestamp).toLocaleTimeString()}
+                      <p className="text-[10px] mt-2 text-gray-300 dark:text-gray-600 font-medium">
+                        {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </p>
                     )}
                   </div>
@@ -578,8 +746,8 @@ export default function ResultsPage({
                           </>
                         )}
                         {message.timestamp && !isStreaming && (
-                          <p className="text-xs mt-2 text-gray-500 dark:text-gray-400">
-                            {new Date(message.timestamp).toLocaleTimeString()}
+                          <p className="text-[10px] mt-2 text-gray-500 dark:text-gray-400 font-medium">
+                            {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </p>
                         )}
                       </div>
@@ -617,6 +785,7 @@ export default function ResultsPage({
                                     onUnsave={handleUnsaveProduct}
                                     isSaved={isSaved}
                                     savedProductId={savedId}
+                                    onOpenModal={setSelectedProduct}
                                   />
                                 </div>
                               );
@@ -689,6 +858,17 @@ export default function ResultsPage({
           </div>
         </div>
       </motion.div>
+
+      {/* Product Details Modal */}
+      <ProductModal
+        isOpen={!!selectedProduct}
+        onClose={() => setSelectedProduct(null)}
+        product={selectedProduct}
+        onSave={handleSaveProduct}
+        onUnsave={handleUnsaveProduct}
+        isSaved={selectedProduct ? isProductSaved(selectedProduct).isSaved : false}
+        savedProductId={selectedProduct ? isProductSaved(selectedProduct).savedId : undefined}
+      />
     </div>
   );
 }

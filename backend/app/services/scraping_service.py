@@ -525,10 +525,15 @@ class ScrapingService:
         
         return products, sources
 
-    async def _scrape_single_store(self, key: str, query: str) -> List[Dict[str, Any]]:
+    async def _scrape_single_store(self, key: str, query: Optional[str] = None, use_listing: bool = False) -> List[Dict[str, Any]]:
         """Scrapes a single fashion store using generic e-commerce patterns."""
         config = FASHION_RETAILERS[key]
-        url = config["search_url"].format(query=quote_plus(query))
+        
+        if use_listing:
+            url = config.get("listing_url") or f"https://{config['domain']}"
+            logger.info(f"📋 BROAD SCRAPE: {config['name']} from {url}")
+        else:
+            url = config["search_url"].format(query=quote_plus(query or ""))
         
         try:
             # Using curl_cffi to impersonate Chrome 124 to bypass Cloudflare/TLS blocks

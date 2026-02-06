@@ -65,11 +65,11 @@ class RAGService:
             try:
                 from google import genai
                 self.gemini_client = genai.Client(api_key=settings.gemini_api_key)
-                self.model_name = "gemini-2.5-flash-lite"
+                self.model_name = "gemini-2.0-flash" # FIXED: 2.5 was a typo
                 self.embedding_model_name = "models/text-embedding-004"
-                print(f"✨ Using Gemini ({self.model_name}) for all responses")
+                logger.info(f"✨ Using Gemini ({self.model_name}) for all responses")
             except Exception as e:
-                print(f"Gemini initialization error: {e}")
+                logger.error(f"Gemini initialization error: {e}")
         
         # Only use local LLM if Gemini is not available
         if not self.gemini_client and settings.use_local_llm:
@@ -360,7 +360,9 @@ Only return the JSON array, nothing else."""
                 logger.info(f"   ✨ Generated {len(summaries)} mini summaries")
         
         except Exception as e:
-            logger.warning(f"   Mini summary parsing error: {e}")
+            logger.warning(f"   ⚠️ Mini summary parsing error: {e}")
+            # Ensure we return at least some version of the products
+            return products
         
         return products
     
@@ -563,6 +565,7 @@ If none match: NONE"""
             logger.info(f"💾 Background indexed {len(products)} products to vector DB")
         except Exception as e:
             logger.error(f"❌ Background indexing error: {e}")
+            # Ensure background errors don't crash main thread (already handled by create_task)
 
     async def get_recommendations(
         self,
@@ -663,8 +666,12 @@ RULES:
                     contents=prompt,
                 )
                 for chunk in response:
-                    if chunk.text:
-                        yield chunk.text
+                    try:
+                        if chunk.text:
+                            yield chunk.text
+                    except Exception as e:
+                        logger.error(f"   ⚠️ Stream chunk error: {e}")
+                        continue
             else:
                 # Stream with OpenAI (or Local LLM)
                 stream = await self.openai_client.chat.completions.create(
@@ -771,23 +778,27 @@ RULES:
                 for p in products
             ], indent=2)
             
-            prompt = f"""You are a helpful product recommendation assistant. Based on the user's query and the scored products, provide:
-1. A brief 2-3 line summary explaining your recommendations
-2. For each product, list 2-3 pros and 2-3 cons
+            prompt = f"""You are an expert product analyst and personal shopper. 
+Based on the query "{query}" and the following products, provide a deep analysis.
 
-User Query: {query}
-Parsed Intent: Category={intent.category}, Budget Max=${intent.budget_max or 'not specified'}, Features={intent.features}
+User Intent: {intent.category}, Budget max: ${intent.budget_max or 'Open'}, Features: {intent.features}
 
-Products (already scored and ranked):
+Products:
 {products_context}
 
-Respond in JSON format:
+Return a structured JSON:
 {{
-    "summary": "Your summary here",
+    "summary": "Start with a WOW opening. Explain the logic behind these recommendations in 2-3 sentences.",
     "product_analysis": [
-        {{"title": "Product Name", "pros": ["pro1", "pro2"], "cons": ["con1", "con2"], "pick_type": "best|value|budget|null"}}
+        {{
+            "title": "Exact Title", 
+            "pros": ["Highlight unique features/material", "Mention value/brand"], 
+            "cons": ["Note any drawbacks like price or availability"], 
+            "pick_type": "best|value|budget|style"
+        }}
     ]
-}}"""
+}}
+Only return valid JSON."""
             
             # Try Gemini first
             if self.gemini_client:
