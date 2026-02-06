@@ -190,18 +190,31 @@ class InventoryScrapeService:
         search_queries = queries or self.DEFAULT_QUERIES
         
         try:
-            # BROAD SCRAPE: Use listing_url instead of queries for inventory
-            # This ensures we get a general index of products not tied to keywords
-            products = await self.scraping_service._scrape_single_store(
-                retailer_key, use_listing=True
-            )
-            
-            if products:
-                all_products.extend(products)
-                
-                # Limit products per retailer
-                if len(all_products) >= self.PRODUCTS_PER_RETAILER:
-                    all_products = all_products[:self.PRODUCTS_PER_RETAILER]
+            # Run multiple queries for this retailer
+            for query in search_queries:
+                try:
+                    # Always try Jina first (uses regex extraction, no Gemini)
+                    products = await self.scraping_service._jina_scrape_retailer(
+                        retailer_key, query
+                    )
+                    
+                    # Fallback to raw HTML if Jina returns nothing
+                    if not products:
+                        products = await self.scraping_service._scrape_single_store(
+                            retailer_key, query
+                        )
+                    
+                    if products:
+                        all_products.extend(products)
+                        
+                    # Limit products per retailer
+                    if len(all_products) >= self.PRODUCTS_PER_RETAILER:
+                        all_products = all_products[:self.PRODUCTS_PER_RETAILER]
+                        break
+                        
+                except Exception as e:
+                    logger.debug(f"Query '{query}' failed for {retailer_name}: {e}")
+                    continue
             
             duration = (datetime.utcnow() - start_time).total_seconds()
             

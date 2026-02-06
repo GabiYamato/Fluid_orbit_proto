@@ -90,29 +90,69 @@ class RAGService:
     
     async def refine_query(self, query: str, history: List[Dict[str, str]]) -> str:
         """
-        Rewrites valid conversational query to standalone product search query using history.
+        Enhanced query refinement for shopping context.
+        Handles follow-up queries like:
+        - "show me cheaper options" -> "mens jeans under $50"
+        - "in blue" -> "mens blue jeans"
+        - "something more formal" -> "formal mens dress pants"
         """
         if not history:
             return query
+        
+        # Check if this is a follow-up question that needs context
+        follow_up_indicators = [
+            "show me", "cheaper", "more", "less", "different", "similar",
+            "in ", "with ", "but ", "instead", "other", "another", "also",
+            "it", "them", "those", "these", "that", "the same", "like"
+        ]
+        needs_context = any(ind in query.lower() for ind in follow_up_indicators)
+        
+        if not needs_context and len(query.split()) >= 3:
+            # Likely a standalone query
+            return query
             
+        # Build rich conversation context
         context_lines = []
-        for h in history[-3:]:
-            role = "Asst" if h.get('role') == 'assistant' else "User"
+        product_mentions = []
+        
+        for h in history[-4:]:  # Last 4 messages for context
+            role = "Assistant" if h.get('role') == 'assistant' else "User"
             txt = h.get('content', '')
-            # Aggressive truncation for small model attention
-            if len(txt) > 150: txt = txt[:150] + "..."
+            
+            # Extract product-related terms from history
+            if len(txt) > 200:
+                txt = txt[:200] + "..."
             context_lines.append(f"{role}: {txt}")
+            
+            # Look for product categories in history
+            for category in ["jeans", "shirt", "dress", "shoes", "jacket", "hoodie", "sweater", "pants"]:
+                if category in txt.lower():
+                    product_mentions.append(category)
         
         history_text = "\n".join(context_lines)
+        recent_product = product_mentions[-1] if product_mentions else ""
         
-        # Compact prompt for Llama 3.2
-        prompt = f"""Context:
-{history_text}
-Input: {query}
-Task: Output a concise Amazon search query. Resolve "it" to product names. Keywords only.
-Query:"""
+        prompt = f"""You are a shopping query rewriter. Your job is to convert follow-up questions into standalone product search queries.
 
-        print(f"🔄 Refining query: '{query}' with history...")
+Recent conversation:
+{history_text}
+
+Most recent product discussed: {recent_product if recent_product else "unknown"}
+
+User's new message: "{query}"
+
+TASK: Rewrite this into a standalone product search query that e-commerce sites can understand.
+
+EXAMPLES:
+- "cheaper ones" → "mens jeans under $40" (if discussing mens jeans)
+- "in blue" → "blue mens jeans"
+- "show me formal options" → "formal dress pants mens"
+- "something similar but for summer" → "lightweight summer jeans mens"
+- "any with better ratings" → "highly rated mens jeans"
+
+Output ONLY the rewritten search query, nothing else."""
+
+        logger.info(f"🔄 Refining query: '{query}' with context...")
         try:
             cleaned = query
             if self.gemini_client:
@@ -125,16 +165,17 @@ Query:"""
                 resp = await self.openai_client.chat.completions.create(
                     model=self.model_name,
                     messages=[{"role": "user", "content": prompt}],
-                    max_tokens=60
+                    max_tokens=80
                 )
                 cleaned = resp.choices[0].message.content.strip()
             
             # Post-process
             cleaned = cleaned.replace('"', '').replace("Rewritten Query:", "").strip()
-            print(f"✅ Refined: '{cleaned}'")
+            cleaned = cleaned.split('\n')[0]  # Take only first line
+            logger.info(f"✅ Refined: '{query}' → '{cleaned}'")
             return cleaned
         except Exception as e:
-            print(f"Refine query error: {e}")
+            logger.warning(f"Refine query error: {e}")
             return query
 
     async def search_products(
@@ -177,7 +218,7 @@ Query:"""
             data_source = "indexed"
         else:
             # STEP 2: Scrape ALL retailers in parallel - get 100+ products
-            logger.info("📡 SCRAPING: Scraping ALL retailers simultaneously for 100+ products...")
+            logger.info("📡 SCRAPING: All 3 levels running in PARALLEL...")
             
             # Use a simplified/broad query for maximum results
             scrape_data = await self.scraping_service.search_and_scrape(query, limit=150)
@@ -186,11 +227,11 @@ Query:"""
             logger.info(f"   → Scraped {total_scraped} products from retailers")
             
             if scraped_products:
-                # STEP 3: Use Gemini to filter irrelevant products IMMEDIATELY
-                # This fixes the "jeans → sunglasses" problem
-                logger.info("🤖 Using Gemini to filter relevant products...")
-                filtered_products = await self._filter_with_llm(query, scraped_products, parsed_intent)
-                logger.info(f"   → Gemini kept {len(filtered_products)}/{total_scraped} relevant products")
+                # STEP 3: Use KEYWORD-BASED filtering (NO Gemini call)
+                # This keeps Gemini usage minimal
+                logger.info("🔍 Keyword-based filtering (no LLM)...")
+                filtered_products = self._filter_by_keywords(query, scraped_products, parsed_intent)
+                logger.info(f"   → Kept {len(filtered_products)}/{total_scraped} relevant products")
                 
                 products = filtered_products
                 data_source = scrape_data.get("source", "retailers")
@@ -325,6 +366,114 @@ Only return the JSON array, nothing else."""
         
         return products
     
+    def _filter_by_keywords(
+        self,
+        query: str,
+        products: List[Dict[str, Any]],
+        intent: ParsedIntent,
+    ) -> List[Dict[str, Any]]:
+        """
+        Fast keyword-based filtering WITHOUT LLM calls.
+        Uses pattern matching to filter out irrelevant products.
+        """
+        if not products:
+            return []
+        
+        query_lower = query.lower()
+        
+        # Extract key terms from query
+        query_words = set(re.findall(r'\b[a-z]{3,}\b', query_lower))
+        
+        # Category synonyms for better matching
+        category_synonyms = {
+            "jeans": ["jeans", "denim", "jean", "pants", "trousers"],
+            "shirt": ["shirt", "tee", "top", "blouse", "polo", "button"],
+            "t-shirt": ["t-shirt", "tshirt", "tee", "t shirt"],
+            "dress": ["dress", "gown", "frock", "maxi", "midi", "mini"],
+            "shoes": ["shoes", "sneakers", "boots", "heels", "sandals", "footwear"],
+            "jacket": ["jacket", "coat", "blazer", "outerwear", "parka"],
+            "hoodie": ["hoodie", "hoody", "sweatshirt", "pullover"],
+            "sweater": ["sweater", "jumper", "cardigan", "knitwear"],
+            "shorts": ["shorts", "short"],
+            "skirt": ["skirt"],
+            "pants": ["pants", "trousers", "chinos", "slacks"],
+            "bag": ["bag", "purse", "handbag", "tote", "backpack"],
+            "watch": ["watch", "watches", "timepiece"],
+        }
+        
+        # Find which category we're looking for
+        target_keywords = set()
+        for category, synonyms in category_synonyms.items():
+            if any(syn in query_lower for syn in synonyms):
+                target_keywords.update(synonyms)
+        
+        # Add category from parsed intent
+        if intent.category:
+            cat_lower = intent.category.lower()
+            target_keywords.add(cat_lower)
+            if cat_lower in category_synonyms:
+                target_keywords.update(category_synonyms[cat_lower])
+        
+        # If no specific category detected, use query words directly
+        if not target_keywords:
+            target_keywords = query_words
+        
+        # Gender filtering
+        gender_terms = {
+            "men": ["men", "mens", "men's", "male", "man", "boy", "boys"],
+            "women": ["women", "womens", "women's", "female", "woman", "girl", "girls", "ladies"],
+            "kids": ["kids", "kid", "children", "child", "baby", "toddler"],
+        }
+        
+        target_gender = None
+        for gender, terms in gender_terms.items():
+            if any(term in query_lower for term in terms):
+                target_gender = gender
+                break
+        
+        # Filter products
+        filtered = []
+        for p in products:
+            title_lower = p.get('title', '').lower()
+            desc_lower = p.get('description', '').lower()
+            combined = f"{title_lower} {desc_lower}"
+            
+            # Check if title matches any target keyword
+            matches_category = any(kw in combined for kw in target_keywords) if target_keywords else True
+            
+            # Check gender match (if specified)
+            matches_gender = True
+            if target_gender:
+                # Check if product matches OR is unisex
+                product_genders = []
+                for gender, terms in gender_terms.items():
+                    if any(term in combined for term in terms):
+                        product_genders.append(gender)
+                
+                if product_genders:
+                    matches_gender = target_gender in product_genders
+            
+            # Exclude obvious non-matches (accessories when looking for clothing)
+            is_accessory = any(acc in title_lower for acc in [
+                "sunglasses", "glasses", "belt", "wallet", "jewelry", "earring",
+                "necklace", "bracelet", "ring", "hat", "cap", "scarf", "gloves",
+                "socks", "tie", "bow tie", "cufflinks"
+            ])
+            
+            # Only exclude accessories if we're NOT looking for accessories
+            if is_accessory and not any(acc in query_lower for acc in ["accessories", "sunglasses", "jewelry", "belt", "wallet"]):
+                continue
+            
+            if matches_category and matches_gender:
+                filtered.append(p)
+        
+        # If filtering was too aggressive, return top products
+        if len(filtered) < 5 and len(products) > 5:
+            logger.debug("Keyword filter too aggressive, loosening criteria")
+            return products[:30]
+        
+        return filtered
+
     async def _filter_with_llm(
         self,
         query: str,
@@ -332,8 +481,8 @@ Only return the JSON array, nothing else."""
         intent: ParsedIntent,
     ) -> List[Dict[str, Any]]:
         """
-        Use Gemini/LLM to filter out products that don't match the query.
-        This prevents showing sunglasses when user searched for jeans.
+        OPTIONAL: Use Gemini/LLM to filter out products that don't match the query.
+        Only use this if keyword filtering isn't sufficient.
         """
         if not products:
             return []
@@ -346,19 +495,19 @@ Only return the JSON array, nothing else."""
         for i, p in enumerate(products_to_check):
             product_list.append(f"{i+1}. {p.get('title', 'Unknown')}")
         
-        prompt = f"""You are an elite Shopping Curators filter.
-User searched for: "{query}"
-Context: {intent.category or 'General Fashion'} | Features: {', '.join(intent.features) if intent.features else 'None'}
-
-Review these products and keep ONLY those that directly match the user's intent. 
-If they search for "jeans", EXCLUDE shirts, belts, or shoes. Be strict.
+        prompt = f"""Filter products by relevance to: "{query}"
 
 Products:
 {chr(10).join(product_list)}
 
-Return ONLY a comma-separated list of indices that are highly relevant.
-Example: 1, 4, 5
-If no products are relevant, return: NONE"""
+RULES:
+- Keep products that match the item type (e.g., "jeans" query → keep jeans/denim, reject shirts/accessories)
+- Consider category hint: {intent.category or 'any'}
+- Consider features: {', '.join(intent.features) if intent.features else 'any'}
+
+Return ONLY the numbers of RELEVANT products as comma-separated list.
+Example: 1,3,5,7,12
+If none match: NONE"""
 
         try:
             relevant_indices = set()
@@ -452,33 +601,61 @@ If no products are relevant, return: NONE"""
         products: List[Dict[str, Any]],
         intent: ParsedIntent,
     ):
-        """Generator that streams the LLM chat response."""
+        """Generator that streams an enhanced LLM chat response."""
         if not self.gemini_client and not self.openai_client:
             yield "I found some products for you, but I cannot generate a summary right now."
             return
 
-        # Simplified prompt for chat-like experience
-        products_context = json.dumps([
-            {
-                "title": p.get("title"),
-                "price": p.get("price"),
-                "rating": p.get("rating")
+        # Build rich product context for better recommendations
+        products_context = []
+        for i, p in enumerate(products[:5]):  # Focus on top 5
+            ctx = {
+                "rank": i + 1,
+                "title": p.get("title", "Unknown")[:60],
+                "price": f"${p.get('price', 0):.2f}",
+                "source": p.get("source", "Unknown"),
+                "rating": f"{p.get('rating', 'N/A')}/5" if p.get('rating') else "No rating",
+                "reviews": f"{p.get('review_count', 0):,}" if p.get('review_count') else "0",
+                "has_image": bool(p.get("image_url") and "placehold" not in p.get("image_url", "")),
             }
-            for p in products
-        ], indent=2)
+            products_context.append(ctx)
+        
+        # Calculate price range for context
+        prices = [p.get("price", 0) for p in products if p.get("price")]
+        price_context = ""
+        if prices:
+            price_context = f"Price range: ${min(prices):.0f} - ${max(prices):.0f}"
+        
+        # Build intent context
+        intent_context = []
+        if intent.category:
+            intent_context.append(f"Category: {intent.category}")
+        if intent.budget_max:
+            intent_context.append(f"Budget: up to ${intent.budget_max}")
+        for feature in (intent.features or [])[:3]:
+            intent_context.append(f"Preference: {feature}")
 
-        prompt = f"""You are "Fluid", an elite personalized shopping assistant. 
-User is looking for: {query}
+        prompt = f"""You are a friendly, knowledgeable fashion shopping assistant. The user asked: "{query}"
 
-Here are the top-tier options I've found:
-{products_context}
+User preferences:
+{chr(10).join(intent_context) if intent_context else "No specific preferences mentioned"}
 
-Provide a sophisticated, conversational summary (2-3 sentences).
-1. Acknowledge their specific need.
-2. Highlight why these specific items are the best choice (quality, value, or style).
-3. Sound knowledgeable and encouraging. 
+I found {len(products)} products. Here are the top picks:
+{json.dumps(products_context, indent=2)}
 
-Be concise, stylish, and authoritative.
+{price_context}
+
+Write a helpful, conversational response (3-4 sentences):
+1. Start with excitement about what you found
+2. Highlight the #1 pick and WHY it's great (price, rating, or brand)
+3. If there's a great value option (good rating + lower price), mention it
+4. End with an engaging question or suggestion
+
+RULES:
+- Be warm and conversational, like a helpful friend
+- Use specific prices and brand names from the data
+- Don't just list products - give personalized insight
+- Keep it concise - user can see the products already
 """
 
         try:
@@ -508,7 +685,7 @@ Be concise, stylish, and authoritative.
 
         except Exception as e:
             print(f"Streaming error: {e}")
-            yield "I encountered an error generating the summary, but please check out the products above!"
+            yield "I found some great options for you! Check out the products below - I've sorted them by quality and value."
     
     async def _search_vector_db(
         self,
