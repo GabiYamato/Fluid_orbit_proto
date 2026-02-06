@@ -30,7 +30,8 @@ class Settings(BaseSettings):
     rapidapi_key: Optional[str] = None
     serpapi_key: Optional[str] = None
     
-    # Jina AI (Embeddings)
+    # Jina AI (Reader API for scraping + optional embeddings)
+    # Get your free API key at: https://jina.ai/reader/
     jina_api_key: Optional[str] = None
     
     # Email (OTP)

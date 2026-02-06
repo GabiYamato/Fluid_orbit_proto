@@ -8,6 +8,7 @@ from .local_embedding_service import LocalEmbeddingService
 from .otp_service import OTPService
 from .intent_parser_service import IntentParserService
 from .inventory_scrape_service import InventoryScrapeService, get_inventory_service
+from .jina_scraper_service import JinaScraperService, get_jina_scraper
 
 __all__ = [
     "AuthService",
@@ -21,4 +22,7 @@ __all__ = [
     "IntentParserService",
     "InventoryScrapeService",
     "get_inventory_service",
+    "JinaScraperService",
+    "get_jina_scraper",
 ]
+

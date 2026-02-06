@@ -44,6 +44,7 @@ sentencepiece
 beautifulsoup4
 lxml
 google-search-results
+curl-cffi
 
 # Rate Limiting
 slowapi

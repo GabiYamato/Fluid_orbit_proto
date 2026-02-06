@@ -196,9 +196,17 @@ class InventoryScrapeService:
             # Run multiple queries for this retailer
             for query in search_queries:
                 try:
-                    products = await self.scraping_service._scrape_single_store(
+                    # Always try Jina first (uses regex extraction, no Gemini)
+                    products = await self.scraping_service._jina_scrape_retailer(
                         retailer_key, query
                     )
+                    
+                    # Fallback to raw HTML if Jina returns nothing
+                    if not products:
+                        products = await self.scraping_service._scrape_single_store(
+                            retailer_key, query
+                        )
+                    
                     if products:
                         all_products.extend(products)
                         
