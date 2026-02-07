@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface Product {
   id?: string;
@@ -17,6 +17,8 @@ interface Product {
   link?: string;
   url?: string;
   source?: string;
+  enriched?: boolean;
+  images?: string[];
   scores?: {
     final_score?: number;
     price_score?: number;
@@ -41,6 +43,19 @@ interface ProductCardProps {
   isSaved?: boolean;
   savedProductId?: string;
   onOpenModal?: (product: Product) => void;
+}
+
+// Image skeleton loader component
+function ImageSkeleton({ className = "" }: { className?: string }) {
+  return (
+    <div className={`animate-pulse bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 ${className}`}>
+      <div className="w-full h-full flex items-center justify-center">
+        <svg className="w-8 h-8 text-gray-400 dark:text-gray-500 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      </div>
+    </div>
+  );
 }
 
 // Skeleton loader for product cards
@@ -95,6 +110,110 @@ export default function ProductCard({
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [localSaved, setLocalSaved] = useState(isSaved);
   const [saving, setSaving] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
+  const [enrichedData, setEnrichedData] = useState<{
+    images: string[];
+    description: string;
+    loaded: boolean;
+  }>({ images: [], description: '', loaded: false });
+
+  // Normalize product data (handle both new and legacy props)
+  const productData = product || {
+    title: name,
+    description,
+    price: price || 0,
+    rating,
+    image_url: image,
+  };
+
+  const displayTitle = productData.title || productData.name || 'Unknown Product';
+  const displayPrice = productData.price || 0;
+  const displayRating = productData.rating || 0;
+  const displaySource = productData.source || '';
+  const finalScore = productData.scores?.final_score;
+
+  // Robust URL extraction with validation
+  const rawUrl = productData.affiliate_url || productData.link || productData.url || '';
+  const displayUrl = (() => {
+    if (!rawUrl) return '';
+    if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+      return rawUrl;
+    }
+    if (rawUrl.startsWith('/')) {
+      const source = displaySource.toLowerCase();
+      const domainMap: Record<string, string> = {
+        'amazon': 'www.amazon.com',
+        'google_shopping': 'shopping.google.com',
+        'express': 'www.express.com',
+        'asos': 'www.asos.com',
+        'nordstrom': 'www.nordstrom.com',
+        'macys': 'www.macys.com',
+        'h&m': 'www.hm.com',
+      };
+      const domain = Object.entries(domainMap).find(([key]) => source.includes(key))?.[1];
+      if (domain) {
+        return `https://${domain}${rawUrl}`;
+      }
+    }
+    return rawUrl;
+  })();
+
+  const hasValidUrl = displayUrl.startsWith('http://') || displayUrl.startsWith('https://');
+
+  // Check if image is a placeholder
+  const isPlaceholder = (url: string) => {
+    return !url || url.includes('placehold') || url.includes('placeholder');
+  };
+
+  // Fetch enriched product data if we have a placeholder image
+  useEffect(() => {
+    const originalImage = productData.image_url || productData.image || '';
+
+    // Only enrich if we have a valid URL and current image is a placeholder
+    if (hasValidUrl && isPlaceholder(originalImage) && !productData.enriched && !enrichedData.loaded) {
+      const fetchEnrichedData = async () => {
+        try {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/products/enrich`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: displayUrl }),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.enriched && data.images?.length > 0) {
+              setEnrichedData({
+                images: data.images,
+                description: data.description || '',
+                loaded: true,
+              });
+            } else {
+              setEnrichedData(prev => ({ ...prev, loaded: true }));
+            }
+          }
+        } catch (error) {
+          console.debug('[ProductCard] Enrichment failed:', error);
+          setEnrichedData(prev => ({ ...prev, loaded: true }));
+        } finally {
+          setImageLoading(false);
+        }
+      };
+
+      // Delay enrichment slightly to avoid too many concurrent requests
+      const timer = setTimeout(fetchEnrichedData, index * 200 + 100);
+      return () => clearTimeout(timer);
+    } else {
+      // No enrichment needed
+      setImageLoading(false);
+      setEnrichedData(prev => ({ ...prev, loaded: true }));
+    }
+  }, [displayUrl, hasValidUrl, productData.enriched, productData.image_url, productData.image, index]);
+
+  // Use enriched data if available, otherwise use original
+  const displayImage = enrichedData.images[0] || productData.image_url || productData.image || '';
+  const displayDescription = enrichedData.description || productData.description || 'No description available for this product.';
+  // Check if we're still loading the image (placeholder + not yet enriched)
+  const showImageSkeleton = imageLoading && isPlaceholder(productData.image_url || productData.image || '');
 
   // Handle save/unsave
   const handleSaveClick = async (e: React.MouseEvent) => {
@@ -116,56 +235,6 @@ export default function ProductCard({
       setSaving(false);
     }
   };
-
-  // Normalize product data (handle both new and legacy props)
-  const productData = product || {
-    title: name,
-    description,
-    price: price || 0,
-    rating,
-    image_url: image,
-  };
-
-  const displayTitle = productData.title || productData.name || 'Unknown Product';
-  const displayDescription = productData.description || 'No description available for this product.';
-  const displayPrice = productData.price || 0;
-  const displayRating = productData.rating || 0;
-  const displayImage = productData.image_url || productData.image || '';
-  const finalScore = productData.scores?.final_score;
-  const displaySource = productData.source || '';
-
-  // Robust URL extraction with validation
-  const rawUrl = productData.affiliate_url || productData.link || productData.url || '';
-  const displayUrl = (() => {
-    if (!rawUrl) return '';
-    // If it's already a full URL
-    if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
-      return rawUrl;
-    }
-    // If it looks like a relative path, try to construct absolute URL
-    if (rawUrl.startsWith('/')) {
-      // Try to use source domain if available
-      const source = displaySource.toLowerCase();
-      // Common domain mappings
-      const domainMap: Record<string, string> = {
-        'amazon': 'www.amazon.com',
-        'google_shopping': 'shopping.google.com',
-        'express': 'www.express.com',
-        'asos': 'www.asos.com',
-        'nordstrom': 'www.nordstrom.com',
-        'macys': 'www.macys.com',
-        'h&m': 'www.hm.com',
-      };
-      const domain = Object.entries(domainMap).find(([key]) => source.includes(key))?.[1];
-      if (domain) {
-        return `https://${domain}${rawUrl}`;
-      }
-    }
-    // Return as-is if we can't fix it (will be caught by validation in handleClick)
-    return rawUrl;
-  })();
-
-  const hasValidUrl = displayUrl.startsWith('http://') || displayUrl.startsWith('https://');
 
   const handleClick = () => {
     if (onOpenModal) {
@@ -196,9 +265,11 @@ export default function ProductCard({
         className="w-full bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-row h-32 group cursor-pointer"
         onClick={handleClick}
       >
-        {/* Image Section with carousel controls */}
+        {/* Image Section with skeleton loader */}
         <div className="relative w-32 h-full bg-gray-50 dark:bg-gray-700/50 shrink-0 flex items-center justify-center">
-          {displayImage ? (
+          {showImageSkeleton ? (
+            <ImageSkeleton className="w-full h-full" />
+          ) : displayImage ? (
             <img
               src={displayImage}
               alt={displayTitle}
@@ -242,48 +313,48 @@ export default function ProductCard({
 
         {/* Content Section */}
         <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
-            {/* Marketplace and Title */}
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{displaySource || 'Marketplace'}</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <h3 className="font-semibold text-sm text-gray-900 dark:text-white line-clamp-1 leading-tight flex-1">
-                  {displayTitle}
-                </h3>
-                {displayRating > 0 && (
-                  <div className="flex items-center gap-0.5 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded text-[10px] font-bold text-amber-700 dark:text-amber-400 shrink-0">
-                    <span>{displayRating.toFixed(1)}</span>
-                    <span>★</span>
-                    {productData.review_count !== undefined && (
-                      <span className="text-[9px] opacity-60 ml-0.5 font-medium">({productData.review_count})</span>
-                    )}
-                  </div>
-                )}
-              </div>
+          {/* Marketplace and Title */}
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{displaySource || 'Marketplace'}</span>
             </div>
-
-            {/* Description */}
-            <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-3 leading-relaxed">
-              {displayDescription}
-            </p>
-            {/* Footer: Price and Link */}
-            <div className="flex items-center justify-between mt-1">
-              <p className="text-sm font-bold text-gray-900 dark:text-white">
-                {formatPrice(displayPrice)}
-              </p>
-              {hasValidUrl ? (
-                <button className="text-xs font-medium text-orange-500 hover:text-orange-600 flex items-center gap-1 transition-colors">
-                  Product Details
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </button>
-              ) : (
-                <span className="text-[10px] text-gray-400">No link</span>
+            <div className="flex items-start gap-2">
+              <h3 className="font-semibold text-sm text-gray-900 dark:text-white line-clamp-1 leading-tight flex-1">
+                {displayTitle}
+              </h3>
+              {displayRating > 0 && (
+                <div className="flex items-center gap-0.5 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded text-[10px] font-bold text-amber-700 dark:text-amber-400 shrink-0">
+                  <span>{displayRating.toFixed(1)}</span>
+                  <span>★</span>
+                  {productData.review_count !== undefined && (
+                    <span className="text-[9px] opacity-60 ml-0.5 font-medium">({productData.review_count})</span>
+                  )}
+                </div>
               )}
             </div>
           </div>
+
+          {/* Description */}
+          <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-3 leading-relaxed">
+            {displayDescription}
+          </p>
+          {/* Footer: Price and Link */}
+          <div className="flex items-center justify-between mt-1">
+            <p className="text-sm font-bold text-gray-900 dark:text-white">
+              {formatPrice(displayPrice)}
+            </p>
+            {hasValidUrl ? (
+              <button className="text-xs font-medium text-orange-500 hover:text-orange-600 flex items-center gap-1 transition-colors">
+                Product Details
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </button>
+            ) : (
+              <span className="text-[10px] text-gray-400">No link</span>
+            )}
+          </div>
+        </div>
       </motion.div>
     );
   }
@@ -298,9 +369,11 @@ export default function ProductCard({
       className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-row h-28 group cursor-pointer"
       onClick={handleClick}
     >
-      {/* Image Section with carousel controls */}
+      {/* Image Section with skeleton loader */}
       <div className="relative w-28 h-full bg-gray-50 dark:bg-gray-700/50 shrink-0 flex items-center justify-center">
-        {displayImage ? (
+        {showImageSkeleton ? (
+          <ImageSkeleton className="w-full h-full" />
+        ) : displayImage ? (
           <img
             src={displayImage}
             alt={displayTitle}
@@ -347,7 +420,7 @@ export default function ProductCard({
         <div className="space-y-0.5">
           {/* Marketplace and Title */}
           <div className="flex items-center gap-1.5">
-             <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">{displaySource || 'Marketplace'}</span>
+            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">{displaySource || 'Marketplace'}</span>
           </div>
           <div className="flex items-start gap-2">
             <h3 className="font-semibold text-xs text-gray-900 dark:text-white line-clamp-1 leading-tight flex-1">

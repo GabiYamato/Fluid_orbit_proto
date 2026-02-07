@@ -46,10 +46,10 @@ export default function Home() {
   }>>([]);
   const [currentQuery, setCurrentQuery] = useState<string>('');
   const [isStreaming, setIsStreaming] = useState(false);
-  
+
   // Ref to track latest chat history for async operations (prevent stale closures)
   const chatHistoryRef = useRef(chatHistory);
-  
+
   useEffect(() => {
     chatHistoryRef.current = chatHistory;
   }, [chatHistory]);
@@ -290,12 +290,12 @@ export default function Home() {
       setUsername('');
       setDisplayName('');
       setEmail(email);
-      
+
       // Reset sessions state before loading user's data
       setChatSessions([]);
       setChatHistory([]);
       setCurrentSessionId(null);
-      
+
       // Clear any existing chat sessions from state
       setChatSessions([]);
       setChatHistory([]);
@@ -338,22 +338,19 @@ export default function Home() {
       setUsername(customName);
       setDisplayName(customName);
       setEmail(email);
-      
+
       // Reset sessions state before loading user's data
-      setChatSessions([]);
       setChatHistory([]);
       setCurrentSessionId(null);
 
-      // Fetch user info and chat sessions from backend
+      // Fetch user info and chat sessions from backend BEFORE navigating to home
+      let loadedSessions: any[] = [];
+
+      // Fetch user info first
       try {
-        const [userResponse, sessionsResponse] = await Promise.all([
-          fetch(`${API_URL}/auth/me`, {
-            headers: { 'Authorization': `Bearer ${token}` },
-          }),
-          fetch(`${API_URL}/history/sessions`, {
-            headers: { 'Authorization': `Bearer ${token}` },
-          }),
-        ]);
+        const userResponse = await fetch(`${API_URL}/auth/me`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
 
         if (userResponse.ok) {
           const userData = await userResponse.json();
@@ -363,16 +360,28 @@ export default function Home() {
             localStorage.setItem('user_custom_name', userData.display_name);
           }
         }
+      } catch (userError) {
+        console.error('Failed to fetch user info:', userError);
+      }
+
+      // Then fetch sessions
+      try {
+        const sessionsResponse = await fetch(`${API_URL}/history/sessions`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
 
         if (sessionsResponse.ok) {
           const sessionsData = await sessionsResponse.json();
-          setChatSessions(sessionsData.sessions || []);
+          loadedSessions = sessionsData.sessions || [];
+        } else {
+          console.error('Failed to fetch sessions:', sessionsResponse.status);
         }
-      } catch (fetchError) {
-        console.log('Could not fetch user data or sessions:', fetchError);
+      } catch (sessionError) {
+        console.error('Failed to fetch sessions (network):', sessionError);
       }
 
-      // Start the flow: home directly
+      // Update sessions state and navigate to home in a single batch
+      setChatSessions(loadedSessions);
       setAppState('home');
     } catch (err: any) {
       setError(err.message || 'Sign in failed');
@@ -413,7 +422,7 @@ export default function Home() {
     localStorage.removeItem('user_email');
     localStorage.removeItem('user_name');
     localStorage.removeItem('user_custom_name');
-    
+
     // CRITICAL: Clear chat sessions from local storage to prevent leakage to next user
     localStorage.removeItem('chat_sessions');
 

@@ -1,0 +1,298 @@
+================================================================================
+                           FLUID ORBIT - COMPLETE CONTEXT
+================================================================================
+
+PRODUCT NAME: Fluid Orbit (FLU)
+TAGLINE: AI-Powered Product Research — No BS, Just Facts.
+VERSION: v4.x (Latest: v2.26-v2.30 features)
+LICENSE: MIT
+
+================================================================================
+                                   THE GOAL
+================================================================================
+
+Fluid Orbit is a next-generation RAG-based product recommendation engine 
+designed to help users make smarter shopping decisions. The platform provides:
+
+1. TRANSPARENT SCORING - Products are ranked and scored transparently
+2. SEMANTIC SEARCH - Natural language understanding for product queries
+3. REAL DATA - Live scraping from 35+ fashion retailers
+4. NO BS, JUST FACTS - Honest, data-driven recommendations without marketing fluff
+
+PRIMARY USE CASE:
+- Users describe what they want in natural language (e.g., "best leather jacket 
+  under $200 for men")
+- The system asks smart clarifying questions (size, style, price range)
+- Products are scraped from real retailers, ranked, and presented with 
+  AI-generated summaries
+
+================================================================================
+                              THE PRODUCT DETAILS
+================================================================================
+
+TARGET AUDIENCE:
+- Fashion-conscious consumers
+- Budget-conscious shoppers
+- Users tired of endless scrolling and comparison shopping
+
+KEY FEATURES:
+1. Natural Language Search - Type queries like you're talking to a friend
+2. Smart Clarifications - Dynamic, product-specific questions
+3. Multi-Retailer Aggregation - Results from 35+ fashion retailers
+4. Saved Products - Save items for later
+5. Chat History - Persistent conversations that survive restarts
+6. User Authentication - Email/password + Google OAuth
+
+SUPPORTED RETAILERS (35+):
+- H&M, ASOS, Express, Zara, Urban Outfitters
+- Macy's, Nordstrom, Gap, Old Navy, Banana Republic
+- Forever 21, Shein, Fashion Nova, Boohoo
+- J.Crew, Abercrombie, American Eagle, Levi's
+- Nike, Adidas, Puma, Under Armour
+- And many more...
+
+================================================================================
+                           TECHNICAL ARCHITECTURE
+================================================================================
+
+PROJECT STRUCTURE:
+```
+FLU/
+├── frontend/              # Next.js + TypeScript + TailwindCSS
+│   └── app/               # App Router pages & components
+│       ├── components/    # 29 React components
+│       │   ├── HomePage.tsx
+│       │   ├── ResultsPage.tsx
+│       │   ├── ProductCard.tsx
+│       │   ├── ClarificationWidget.tsx
+│       │   ├── Sidebar.tsx
+│       │   └── ... (24 more)
+│       ├── contexts/      # React contexts
+│       ├── api/           # API routes
+│       └── page.tsx       # Main page
+├── backend/               # FastAPI + SQLite + Qdrant
+│   └── app/
+│       ├── routers/       # API endpoints
+│       │   ├── auth.py         # Authentication
+│       │   ├── query.py        # Search queries
+│       │   ├── history.py      # Chat history
+│       │   ├── inventory.py    # Inventory management
+│       │   └── saved_products.py
+│       ├── services/      # Business logic
+│       │   ├── rag_service.py              # Main RAG pipeline (1074 lines)
+│       │   ├── scraping_service.py         # Product scraping (49KB)
+│       │   ├── inventory_scrape_service.py # Bulk scraping
+│       │   ├── intent_parser_service.py    # Query intent analysis
+│       │   ├── local_embedding_service.py  # Local embeddings
+│       │   ├── scoring_service.py          # Product scoring
+│       │   └── ... (7 more)
+│       ├── models/        # SQLAlchemy models
+│       │   ├── user.py
+│       │   ├── product.py
+│       │   ├── chat_session.py
+│       │   ├── query_history.py
+│       │   └── saved_product.py
+│       ├── schemas/       # Pydantic schemas
+│       └── utils/         # JWT, logging, rate limiting
+├── qdrant_data/           # Vector database storage
+├── logs/                  # Application logs
+├── docker-compose.yml     # Production setup
+└── .env                   # Environment configuration
+```
+
+================================================================================
+                          BACKEND ARCHITECTURE
+================================================================================
+
+FRAMEWORK: FastAPI (Python 3.11+)
+DATABASE: SQLite (development) / PostgreSQL (production)
+VECTOR DB: Qdrant (local storage at ./qdrant_data)
+EMBEDDINGS: sentence-transformers (all-MiniLM-L6-v2) - runs locally
+
+CORE SERVICES:
+
+1. RAG SERVICE (rag_service.py)
+   - Main orchestrator for the RAG pipeline
+   - Handles query refinement, product search, response generation
+   - Uses Gemini or OpenAI for LLM responses
+   - Implements background indexing for discovered products
+   
+2. SCRAPING SERVICE (scraping_service.py)
+   - Scrapes 35+ fashion retailers
+   - Uses curl_cffi for TLS fingerprint impersonation
+   - Smart batching (10 stores concurrently)
+   - JSON-LD and meta tag extraction
+   
+3. INTENT PARSER SERVICE (intent_parser_service.py)
+   - Analyzes user queries for missing information
+   - Returns dynamic UI widget definitions
+   - Fashion-focused clarification system
+   - Detects: gender, size, style, price range
+   
+4. LOCAL EMBEDDING SERVICE (local_embedding_service.py)
+   - Uses sentence-transformers for embeddings
+   - No API key required
+   - Optimized for semantic search
+
+API ENDPOINTS:
+
+Authentication:
+- POST /auth/register    - Email/password registration
+- POST /auth/login       - Login
+- GET  /auth/google/login - Google OAuth initiation
+- GET  /auth/google/callback - OAuth callback
+
+Queries:
+- POST /query            - Main search endpoint
+- GET  /query/stream     - Streaming responses
+
+History:
+- GET  /history/sessions - Get all chat sessions
+- GET  /history/session/{id} - Get specific session
+
+Inventory:
+- POST /inventory/scrape   - Trigger full scrape
+- GET  /inventory/status   - Scrape status
+- GET  /inventory/stats    - Product counts
+
+Saved Products:
+- POST /saved-products     - Save a product
+- GET  /saved-products     - Get saved products
+- DELETE /saved-products/{id} - Remove saved product
+
+================================================================================
+                          FRONTEND ARCHITECTURE
+================================================================================
+
+FRAMEWORK: Next.js 14 with App Router
+LANGUAGE: TypeScript
+STYLING: TailwindCSS
+DESIGN: Neobrutalism-inspired
+- Thick black borders
+- Hard drop shadows
+- Bold typography
+- Pink (#E31B5B) accent color
+
+KEY COMPONENTS:
+
+1. HomePage.tsx - Landing page with search input
+2. ResultsPage.tsx (45KB) - Main results display
+3. ProductCard.tsx - Individual product cards
+4. ClarificationWidget.tsx - Dynamic clarification forms
+5. Sidebar.tsx - Navigation and history
+6. ChatHistoryPopup.tsx - Previous conversations
+7. SavedProductsPage.tsx - Saved items view
+
+================================================================================
+                     3-LEVEL ESCALATION STRATEGY
+================================================================================
+
+The system uses a sophisticated retrieval strategy:
+
+LEVEL 1: MEMORY (FAST PATH)
+- Query Qdrant vector database first
+- Uses local embeddings (all-MiniLM-L6-v2)
+- Returns results in <200ms if >3 high-quality matches exist
+
+LEVEL 2: TARGETED DISCOVERY (PARALLEL)
+- Triggered when Level 1 has insufficient results
+- Scrapes 35+ fashion retailers concurrently
+- Tests Google Shopping via SerpAPI
+- Smart batching: 10 stores at a time
+
+LEVEL 3: DEEP WEB (FALLBACK)
+- Web crawler using DuckDuckGo Discovery
+- Scrapes generic e-commerce pages
+- Extracts JSON-LD and meta tags
+
+FEEDBACK LOOP:
+Every product found in Level 2 or 3 is AUTOMATICALLY INDEXED back into 
+Qdrant. The system gets smarter and faster with every query.
+
+================================================================================
+                          LLM CONFIGURATION
+================================================================================
+
+LOCAL LLM (Default - Free, Private):
+- Provider: Ollama
+- Model: llama3.2:3b
+- Embeddings: nomic-embed-text
+- URL: http://localhost:11434/v1
+
+CLOUD LLM (Higher Quality):
+- Gemini (recommended): GEMINI_API_KEY
+- OpenAI (alternative): OPENAI_API_KEY
+- Priority: Gemini > OpenAI
+
+Toggle in .env:
+```
+USE_LOCAL_LLM=True   # Use Ollama
+USE_LOCAL_LLM=False  # Use Gemini/OpenAI
+```
+
+================================================================================
+                          QUERY TYPES SUPPORTED
+================================================================================
+
+1. best_product    - "best wireless earbuds under $100"
+2. deep_dive       - "tell me about Sony WH-1000XM4"
+3. multiple_listing - "show me all gaming headsets"
+4. spec_lookup     - "what's the battery life of AirPods Pro"
+5. review_based    - "are Sony headphones worth it?"
+
+================================================================================
+                          SERVICE PORTS
+================================================================================
+
+- Backend:  http://localhost:8000
+- Frontend: http://localhost:3000
+- Redis:    http://localhost:6379
+- Ollama:   http://localhost:11434
+
+================================================================================
+                          ENVIRONMENT VARIABLES
+================================================================================
+
+Required:
+- SECRET_KEY (JWT signing)
+
+Optional:
+- GEMINI_API_KEY (Cloud LLM)
+- OPENAI_API_KEY (Alternative LLM)
+- SERPAPI_KEY (Google Shopping)
+- GOOGLE_CLIENT_ID (OAuth)
+- GOOGLE_CLIENT_SECRET (OAuth)
+- USE_LOCAL_LLM (True/False)
+- OLLAMA_BASE_URL
+
+================================================================================
+                               DATA MODELS
+================================================================================
+
+User:
+- id, email, hashed_password, full_name, created_at
+
+Product:
+- id, title, price, description, url, image_url, retailer
+- embedding, created_at, category, brand
+
+ChatSession:
+- id, user_id, title, created_at, updated_at
+
+QueryHistory:
+- id, session_id, query, response, products_json, created_at
+
+SavedProduct:
+- id, user_id, product_id, saved_at
+
+================================================================================
+                              LOGGING
+================================================================================
+
+- Console: Colored, concise output
+- File: ./logs/shopgpt_YYYYMMDD.log
+- Rotation: 10MB max, 5 backups
+
+================================================================================
+                          END OF CONTEXT
+================================================================================

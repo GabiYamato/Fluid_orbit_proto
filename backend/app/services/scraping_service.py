@@ -100,6 +100,12 @@ class ScrapingService:
     
     JINA_READER_URL = "https://r.jina.ai"
     
+    # Pattern to detect concatenated sizes - just matches 6+ chars of size-related letters
+    SIZE_CHARS_PATTERN = re.compile(
+        r'\b[XSML0-9]{6,}\b',  # Must be 6+ chars of only X, S, M, L, or digits
+        re.IGNORECASE
+    )
+    
     def __init__(self):
         self.serpapi_key = getattr(settings, 'serpapi_key', None)
         self.jina_api_key = getattr(settings, 'jina_api_key', None)
@@ -112,6 +118,144 @@ class ScrapingService:
         if self.jina_api_key:
             headers["Authorization"] = f"Bearer {self.jina_api_key}"
         return headers
+    
+    def _clean_description(self, text: str) -> str:
+        """
+        Clean product description by removing concatenated sizes and other noise.
+        
+        Examples of noise to remove:
+        - "XXSXSSMLXLXXL3XL" -> ""
+        - "SMLXLXXL" -> ""
+        """
+        if not text:
+            return ""
+        
+        cleaned = text
+        
+        # Remove long strings of only size-related characters (X,S,M,L + digits)
+        # e.g., "XXSXSSMLXLXXL3XL", "SMLXLXXL"
+        cleaned = self.SIZE_CHARS_PATTERN.sub('', cleaned)
+        
+        # Remove standalone numeric size sequences like "0 2 4 6 8 10" or "0246810"
+        # These are typically dress/pant sizes listed together
+        cleaned = re.sub(r'\b(\d{1,2}\s*){5,}\b', '', cleaned)
+        
+        # Remove "Size:" or "Sizes:" followed by size lists (must have the full word)
+        # Using word boundary to ensure we don't match 's from possessives like Men's
+        cleaned = re.sub(r'\bSizes?\s*:?\s*(?:(?:XXS|XS|S|M|L|XL|XXL|XXXL|\d{1,2})[\s,/]*)+', '', cleaned, flags=re.IGNORECASE)
+        
+        # Clean up extra whitespace
+        cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+        
+        # If cleaned text is too short (less than 10 chars), return empty
+        if len(cleaned) < 10:
+            return ""
+        
+        return cleaned
+    
+    def _is_valid_image_url(self, url: str) -> bool:
+        """
+        Check if image URL is a valid product image (not placeholder, icon, etc.)
+        """
+        if not url:
+            return False
+        
+        url_lower = url.lower()
+        
+        # Skip placeholder images
+        if 'placehold' in url_lower or 'placeholder' in url_lower:
+            return False
+        
+        # Skip icons, logos, and tiny images
+        invalid_patterns = [
+            'icon', 'logo', 'sprite', 'pixel', 'spacer', 'blank',
+            'loader', 'loading', 'spinner', 'clear.gif', '1x1',
+            'svg+xml', 'data:image', 'base64',
+        ]
+        if any(pattern in url_lower for pattern in invalid_patterns):
+            return False
+        
+        # Should have image extension or be from CDN
+        valid_extensions = ['.jpg', '.jpeg', '.png', '.webp', '.avif']
+        has_valid_ext = any(ext in url_lower for ext in valid_extensions)
+        
+        # Or should be from known image CDNs
+        cdn_patterns = [
+            'cloudinary', 'imgix', 'shopify', 'squarespace', 'akamai',
+            'cloudfront', 'fastly', 'cdn', 'images', 'img', 'media',
+        ]
+        is_cdn = any(cdn in url_lower for cdn in cdn_patterns)
+        
+        return has_valid_ext or is_cdn or url.startswith('http')
+    
+    def _extract_best_image(self, img_el, base_domain: str) -> Optional[str]:
+        """
+        Extract the best quality image URL from an img element.
+        Handles srcset, data-src, lazy loading, etc.
+        """
+        if not img_el:
+            return None
+        
+        # Priority order for image sources
+        img_sources = [
+            # High-res srcset
+            img_el.get('srcset'),
+            # Data attributes for lazy loading
+            img_el.get('data-src'),
+            img_el.get('data-lazy-src'),
+            img_el.get('data-original'),
+            img_el.get('data-image'),
+            img_el.get('data-srcset'),
+            img_el.get('data-lazy'),
+            img_el.get('data-high-res-src'),
+            # Standard src
+            img_el.get('src'),
+        ]
+        
+        for source in img_sources:
+            if not source:
+                continue
+            
+            # Handle srcset format: "url1 1x, url2 2x" or "url1 300w, url2 600w"
+            if ',' in source and (' w' in source or ' x' in source):
+                # Parse srcset and get highest resolution
+                srcset_parts = source.split(',')
+                best_url = None
+                best_size = 0
+                
+                for part in srcset_parts:
+                    part = part.strip()
+                    if ' ' in part:
+                        url, descriptor = part.rsplit(' ', 1)
+                        url = url.strip()
+                        # Parse size (e.g., "300w" or "2x")
+                        try:
+                            if descriptor.endswith('w'):
+                                size = int(descriptor[:-1])
+                            elif descriptor.endswith('x'):
+                                size = int(float(descriptor[:-1]) * 100)
+                            else:
+                                size = 0
+                        except:
+                            size = 0
+                        
+                        if size > best_size and self._is_valid_image_url(url):
+                            best_size = size
+                            best_url = url
+                
+                if best_url:
+                    if not best_url.startswith('http'):
+                        best_url = urljoin(f"https://{base_domain}", best_url)
+                    return best_url
+            else:
+                # Single URL
+                url = source.strip()
+                if self._is_valid_image_url(url):
+                    if not url.startswith('http'):
+                        url = urljoin(f"https://{base_domain}", url)
+                    return url
+        
+        return None
 
     async def search_and_scrape(self, query: str, limit: int = 10) -> Dict[str, Any]:
         """
@@ -382,6 +526,8 @@ class ScrapingService:
         """
         Extract products from Jina markdown content using regex patterns.
         NO Gemini/LLM calls - pure pattern matching.
+        
+        Also extracts image URLs from markdown format: ![alt](url)
         """
         if not content:
             return []
@@ -417,6 +563,13 @@ class ScrapingService:
         # Pattern: Look for markdown links followed by prices
         link_pattern = r'\[([^\]]{15,100})\]\((https?://[^\s\)]+)\)'
         price_pattern = r'\$(\d{2,4}(?:\.\d{2})?)'  # Min $10, max $9999
+        
+        # Pattern: Look for markdown images: ![alt](url)
+        image_pattern = r'!\[[^\]]*\]\((https?://[^\s\)]+(?:\.jpg|\.jpeg|\.png|\.webp|\.avif)[^\s\)]*)\)'
+        
+        # Extract all images from content for matching with products
+        all_images = re.findall(image_pattern, content, re.IGNORECASE)
+        image_index = 0
         
         # Find all links
         for match in re.finditer(link_pattern, content):
@@ -481,16 +634,48 @@ class ScrapingService:
                     
                     seen_titles.add(title_key)
                     
-                    # Generate a placeholder image with retailer initial
-                    initial = retailer_name[0].upper() if retailer_name else "S"
-                    placeholder_image = f"https://placehold.co/300x300/1a1a2e/eaeaea?text={initial}"
+                    # Try to find image URL near this product
+                    image_url = None
+                    
+                    # Look for markdown image in nearby text (before and after link)
+                    search_start = max(0, match.start() - 500)
+                    search_end = min(len(content), match.end() + 500)
+                    nearby_content = content[search_start:search_end]
+                    
+                    # Find image URLs in nearby content
+                    nearby_images = re.findall(image_pattern, nearby_content, re.IGNORECASE)
+                    if nearby_images:
+                        # Use the first valid image found
+                        for img_url in nearby_images:
+                            if self._is_valid_image_url(img_url):
+                                image_url = img_url
+                                break
+                    
+                    # Fallback to global image list (round-robin)
+                    if not image_url and all_images:
+                        while image_index < len(all_images):
+                            potential_img = all_images[image_index]
+                            image_index += 1
+                            if self._is_valid_image_url(potential_img):
+                                image_url = potential_img
+                                break
+                    
+                    # Last fallback: placeholder image
+                    if not image_url:
+                        initial = retailer_name[0].upper() if retailer_name else "S"
+                        image_url = f"https://placehold.co/300x300/1a1a2e/eaeaea?text={initial}"
+                    
+                    # Clean the description
+                    description = self._clean_description(f"{title} from {retailer_name}")
+                    if not description:
+                        description = f"{title} from {retailer_name}"
                     
                     products.append({
                         "id": url,
                         "title": title,
-                        "description": f"{title} from {retailer_name}",
+                        "description": description,
                         "price": price,
-                        "image_url": placeholder_image,
+                        "image_url": image_url,
                         "affiliate_url": url,
                         "source": retailer_name,
                         "last_updated": datetime.utcnow().isoformat(),
@@ -577,14 +762,17 @@ class ScrapingService:
                         description = ""
                         desc_selectors = [
                             '[class*="description"]', '[class*="desc"]', '[class*="subtitle"]',
-                            '[class*="detail"]', '[class*="info"]', 'p', '.product-description',
+                            '[class*="detail"]', '[class*="info"]:not([class*="size"])', 
+                            '.product-description', '[class*="copy"]', '[class*="text"]',
                         ]
                         for desc_sel in desc_selectors:
                             desc_el = item.select_one(desc_sel)
                             if desc_el:
                                 desc_text = desc_el.get_text(strip=True)
-                                if desc_text and len(desc_text) > 10 and desc_text.lower() != title.lower():
-                                    description = desc_text[:200]
+                                # Skip if it's just sizes or empty
+                                cleaned_desc = self._clean_description(desc_text)
+                                if cleaned_desc and len(cleaned_desc) > 10 and cleaned_desc.lower() != title.lower():
+                                    description = cleaned_desc[:200]
                                     break
                         
                         if not description:
@@ -625,12 +813,35 @@ class ScrapingService:
                         if not link or not link.startswith('http'):
                             continue
                         
-                        img_el = item.select_one('img')
+                        # Enhanced image extraction - try multiple selectors and sources
                         img = ""
-                        if img_el:
-                            img = img_el.get('src') or img_el.get('data-src') or img_el.get('data-lazy-src') or ""
-                            if img and not img.startswith('http'):
-                                img = urljoin(f"https://{config['domain']}", img)
+                        img_selectors = [
+                            'img.product-image', 'img.product-img', 'img[class*="product"]',
+                            'img.primary-image', 'img[class*="primary"]', 'img[class*="main"]',
+                            'picture img', 'figure img', '.product-card img', '.product-tile img',
+                            'img[class*="thumb"]', 'img[class*="gallery"]', 'img',
+                        ]
+                        
+                        for img_selector in img_selectors:
+                            img_el = item.select_one(img_selector)
+                            if img_el:
+                                extracted_img = self._extract_best_image(img_el, config['domain'])
+                                if extracted_img:
+                                    img = extracted_img
+                                    break
+                        
+                        # Also check for background images in style attributes
+                        if not img:
+                            for el in item.select('[style*="background"]'):
+                                style = el.get('style', '')
+                                bg_match = re.search(r'url\(["\']?([^"\')]+)["\']?\)', style)
+                                if bg_match:
+                                    bg_url = bg_match.group(1)
+                                    if self._is_valid_image_url(bg_url):
+                                        if not bg_url.startswith('http'):
+                                            bg_url = urljoin(f"https://{config['domain']}", bg_url)
+                                        img = bg_url
+                                        break
                         
                         # Fallback to placeholder if no image found
                         if not img:

@@ -64,14 +64,14 @@ export default function ProductModal({
   const displayPrice = product.price || 0;
   const displayRating = product.rating || 0;
   const displayReviewCount = product.review_count || 0;
-  
-  const productImages = product.images && product.images.length > 0 
-    ? product.images 
+
+  const productImages = product.images && product.images.length > 0
+    ? product.images
     : [product.image_url || product.image || ''];
-  
+
   const activeImage = productImages[currentImageIndex] || productImages[0];
   const displaySource = product.source || 'Marketplace';
-  
+
   // Normalize source for display (e.g., "amazon" -> "amazon.com")
   const marketplaceName = (() => {
     const s = displaySource.toLowerCase();
@@ -110,7 +110,7 @@ export default function ProductModal({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 md:p-10">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 md:p-10">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -132,12 +132,12 @@ export default function ProductModal({
             <div className="flex items-center justify-between p-4 md:px-8 md:py-6 border-b border-gray-100 dark:border-gray-800 shrink-0">
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-1.5 text-gray-400 dark:text-gray-500">
-                   <svg className="w-5 h-5 hover:text-black dark:hover:text-white cursor-pointer transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                   </svg>
-                   <svg className="w-5 h-5 hover:text-black dark:hover:text-white cursor-pointer transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                   </svg>
+                  <svg className="w-5 h-5 hover:text-black dark:hover:text-white cursor-pointer transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <svg className="w-5 h-5 hover:text-black dark:hover:text-white cursor-pointer transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
                 </div>
               </div>
 
@@ -167,12 +167,12 @@ export default function ProductModal({
                 <div className="min-w-0">
                   <h4 className="font-bold text-base md:text-lg text-gray-900 dark:text-white leading-tight">{marketplaceName}</h4>
                   <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-                     <span className="font-bold text-gray-900 dark:text-white">{displayRating ? displayRating.toFixed(1) : '4.8'}</span>
-                     <span className="text-amber-500">★</span>
-                     <span>({displayReviewCount || '120'} reviews)</span>
+                    <span className="font-bold text-gray-900 dark:text-white">{displayRating ? displayRating.toFixed(1) : '4.8'}</span>
+                    <span className="text-amber-500">★</span>
+                    <span>({displayReviewCount || '120'} reviews)</span>
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={() => window.open(rawUrl, '_blank')}
                   className="ml-auto px-6 py-2 rounded-full border border-black dark:border-white text-black dark:text-white text-xs font-bold hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0"
                 >
@@ -202,13 +202,13 @@ export default function ProductModal({
                         />
                       </AnimatePresence>
                     </div>
-                    
+
                     {/* Thumbnails row */}
                     <div className="mt-4 flex items-center justify-center w-full px-4 mb-8">
-                      <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide py-1">
+                      <div className="flex gap-2.5 overflow-x-auto p-2 scrollbar-hide">
                         {productImages.map((img, i) => (
-                          <button 
-                            key={i} 
+                          <button
+                            key={i}
                             onClick={() => setCurrentImageIndex(i)}
                             className={`w-11 h-11 rounded-xl border-2 shrink-0 transition-all ${i === currentImageIndex ? 'border-gray-900 dark:border-white scale-105 shadow-md bg-white dark:bg-gray-800' : 'border-transparent opacity-40 hover:opacity-100 hover:scale-105'}`}
                           >
@@ -237,35 +237,35 @@ export default function ProductModal({
 
                     {/* Primary Actions */}
                     <div className="space-y-4 mb-8">
-                       <button 
+                      <button
                         onClick={() => window.open(rawUrl, '_blank')}
                         className="w-full py-4 rounded-2xl bg-black dark:bg-white text-white dark:text-black font-black text-sm hover:opacity-90 transition-all shadow-lg active:scale-[0.98] flex items-center justify-center gap-2"
-                       >
-                         Visit Product Page
-                       </button>
-                       <div className="flex gap-4">
-                          <button 
-                            onClick={() => {
-                              if (isSaved && onUnsave && savedProductId) onUnsave(savedProductId);
-                              else if (!isSaved && onSave) onSave(product);
-                            }}
-                            className={`flex-1 py-4 rounded-2xl border-2 flex items-center justify-center gap-2 font-bold text-sm transition-all active:scale-[0.98] ${isSaved ? 'bg-orange-500 border-orange-500 text-white shadow-orange-500/20 shadow-lg' : 'border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-                          >
-                             <svg className={`w-5 h-5 ${isSaved ? 'fill-current' : 'fill-none'}`} stroke="currentColor" viewBox="0 0 24 24">
-                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                             </svg>
-                             {isSaved ? 'Saved' : 'Save'}
-                          </button>
-                          <button 
-                            onClick={handleShare}
-                            className="flex-1 py-4 rounded-2xl border-2 border-gray-100 dark:border-gray-800 flex items-center justify-center gap-2 font-bold text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-all active:scale-[0.98]"
-                          >
-                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                             </svg>
-                             Share
-                          </button>
-                       </div>
+                      >
+                        Visit Product Page
+                      </button>
+                      <div className="flex gap-4">
+                        <button
+                          onClick={() => {
+                            if (isSaved && onUnsave && savedProductId) onUnsave(savedProductId);
+                            else if (!isSaved && onSave) onSave(product);
+                          }}
+                          className={`flex-1 py-4 rounded-2xl border-2 flex items-center justify-center gap-2 font-bold text-sm transition-all active:scale-[0.98] ${isSaved ? 'bg-orange-500 border-orange-500 text-white shadow-orange-500/20 shadow-lg' : 'border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+                        >
+                          <svg className={`w-5 h-5 ${isSaved ? 'fill-current' : 'fill-none'}`} stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                          </svg>
+                          {isSaved ? 'Saved' : 'Save'}
+                        </button>
+                        <button
+                          onClick={handleShare}
+                          className="flex-1 py-4 rounded-2xl border-2 border-gray-100 dark:border-gray-800 flex items-center justify-center gap-2 font-bold text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-all active:scale-[0.98]"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                          </svg>
+                          Share
+                        </button>
+                      </div>
                     </div>
 
                     {/* Description */}
@@ -280,56 +280,56 @@ export default function ProductModal({
 
                     {/* Policies side-by-side at bottom */}
                     <div className="mt-auto pt-6 border-t border-gray-50 dark:border-gray-800/50 hidden md:flex flex-row gap-3">
-                       <div className="flex-1 flex items-center justify-between p-3 rounded-2xl bg-gray-50 dark:bg-gray-800/40 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all group cursor-pointer border border-transparent hover:border-gray-200 dark:hover:border-white/5">
-                          <div className="flex items-center gap-2.5">
-                             <div className="p-2 bg-white dark:bg-gray-900 rounded-xl shadow-sm text-gray-500">
-                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                               </svg>
-                             </div>
-                             <span className="text-xs font-bold text-gray-900 dark:text-white">Shipping</span>
+                      <div className="flex-1 flex items-center justify-between p-3 rounded-2xl bg-gray-50 dark:bg-gray-800/40 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all group cursor-pointer border border-transparent hover:border-gray-200 dark:hover:border-white/5">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2 bg-white dark:bg-gray-900 rounded-xl shadow-sm text-gray-500">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                            </svg>
                           </div>
-                          <svg className="w-4 h-4 text-gray-300 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                       </div>
-                       <div className="flex-1 flex items-center justify-between p-3 rounded-2xl bg-gray-50 dark:bg-gray-800/40 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all group cursor-pointer border border-transparent hover:border-gray-200 dark:hover:border-white/5">
-                          <div className="flex items-center gap-2.5">
-                             <div className="p-2 bg-white dark:bg-gray-900 rounded-xl shadow-sm text-gray-500">
-                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3" />
-                               </svg>
-                             </div>
-                             <span className="text-xs font-bold text-gray-900 dark:text-white">Refund</span>
+                          <span className="text-xs font-bold text-gray-900 dark:text-white">Shipping</span>
+                        </div>
+                        <svg className="w-4 h-4 text-gray-300 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                      <div className="flex-1 flex items-center justify-between p-3 rounded-2xl bg-gray-50 dark:bg-gray-800/40 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all group cursor-pointer border border-transparent hover:border-gray-200 dark:hover:border-white/5">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2 bg-white dark:bg-gray-900 rounded-xl shadow-sm text-gray-500">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3" />
+                            </svg>
                           </div>
-                          <svg className="w-4 h-4 text-gray-300 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                       </div>
+                          <span className="text-xs font-bold text-gray-900 dark:text-white">Refund</span>
+                        </div>
+                        <svg className="w-4 h-4 text-gray-300 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-                {/* Policies visible here for mobile */}
-                <div className="border-t border-gray-100 dark:border-gray-800 pt-6 flex flex-col sm:flex-row gap-4 md:hidden">
-                   <div className="flex-1 flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-transparent">
-                      <div className="flex items-center gap-2">
-                         <span className="text-xs font-bold text-gray-900 dark:text-white">Shipping Policy</span>
-                      </div>
-                   </div>
-                   <div className="flex-1 flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-transparent">
-                      <div className="flex items-center gap-2">
-                         <span className="text-xs font-bold text-gray-900 dark:text-white">Refund Policy</span>
-                      </div>
-                   </div>
+              {/* Policies visible here for mobile */}
+              <div className="border-t border-gray-100 dark:border-gray-800 pt-6 flex flex-col sm:flex-row gap-4 md:hidden">
+                <div className="flex-1 flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-transparent">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-gray-900 dark:text-white">Shipping Policy</span>
+                  </div>
+                </div>
+                <div className="flex-1 flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-transparent">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-gray-900 dark:text-white">Refund Policy</span>
+                  </div>
                 </div>
               </div>
+            </div>
 
             {/* Bottom Nav Bar (Mobile Only) */}
             <div className="md:hidden flex items-center justify-around p-4 border-t border-gray-100 dark:border-gray-800 shrink-0">
-               <svg className="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
-               <svg className="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24"><path d="M4 18h11c.55 0 1-.45 1-1s-.45-1-1-1H4c-.55 0-1 .45-1 1s.45 1 1 1zm0-4h8c.55 0 1-.45 1-1s-.45-1-1-1H4c-.55 0-1 .45-1 1s.45 1 1 1zm0-4h11c.55 0 1-.45 1-1s-.45-1-1-1H4c-.55 0-1 .45-1 1s.45 1 1 1zm0-8v2h18V4H4z"/></svg>
-               <svg className="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
+              <svg className="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" /></svg>
+              <svg className="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24"><path d="M4 18h11c.55 0 1-.45 1-1s-.45-1-1-1H4c-.55 0-1 .45-1 1s.45 1 1 1zm0-4h8c.55 0 1-.45 1-1s-.45-1-1-1H4c-.55 0-1 .45-1 1s.45 1 1 1zm0-4h11c.55 0 1-.45 1-1s-.45-1-1-1H4c-.55 0-1 .45-1 1s.45 1 1 1zm0-8v2h18V4H4z" /></svg>
+              <svg className="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z" /></svg>
             </div>
           </motion.div>
         </div>

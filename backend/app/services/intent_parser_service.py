@@ -52,7 +52,7 @@ PRODUCT_QUESTIONS = {
                 ],
             },
             {
-                "type": "poll",
+                "type": "checkbox_group",
                 "field": "fit",
                 "label": "What fit do you prefer?",
                 "options": [
@@ -65,7 +65,7 @@ PRODUCT_QUESTIONS = {
                 ],
             },
             {
-                "type": "poll",
+                "type": "checkbox_group",
                 "field": "wash",
                 "label": "Preferred wash/color?",
                 "options": [
@@ -93,7 +93,7 @@ PRODUCT_QUESTIONS = {
         "message": "Let's find your perfect dress! A few quick questions:",
         "questions": [
             {
-                "type": "poll",
+                "type": "checkbox_group",
                 "field": "occasion",
                 "label": "What's the occasion?",
                 "options": [
@@ -105,7 +105,7 @@ PRODUCT_QUESTIONS = {
                 ],
             },
             {
-                "type": "poll",
+                "type": "checkbox_group",
                 "field": "length",
                 "label": "Preferred length?",
                 "options": [
@@ -116,7 +116,7 @@ PRODUCT_QUESTIONS = {
                 ],
             },
             {
-                "type": "poll",
+                "type": "checkbox_group",
                 "field": "style",
                 "label": "Preferred style?",
                 "options": [
@@ -154,7 +154,7 @@ PRODUCT_QUESTIONS = {
                 ],
             },
             {
-                "type": "poll",
+                "type": "checkbox_group",
                 "field": "type",
                 "label": "What type of shoes?",
                 "options": [
@@ -167,7 +167,7 @@ PRODUCT_QUESTIONS = {
                 ],
             },
             {
-                "type": "poll",
+                "type": "checkbox_group",
                 "field": "color",
                 "label": "Preferred color?",
                 "options": [
@@ -205,7 +205,7 @@ PRODUCT_QUESTIONS = {
                 ],
             },
             {
-                "type": "poll",
+                "type": "checkbox_group",
                 "field": "style",
                 "label": "What style?",
                 "options": [
@@ -217,7 +217,7 @@ PRODUCT_QUESTIONS = {
                 ],
             },
             {
-                "type": "poll",
+                "type": "checkbox_group",
                 "field": "neckline",
                 "label": "Preferred neckline?",
                 "options": [
@@ -253,7 +253,7 @@ PRODUCT_QUESTIONS = {
                 ],
             },
             {
-                "type": "poll",
+                "type": "checkbox_group",
                 "field": "style",
                 "label": "What style?",
                 "options": [
@@ -264,7 +264,7 @@ PRODUCT_QUESTIONS = {
                 ],
             },
             {
-                "type": "poll",
+                "type": "checkbox_group",
                 "field": "weight",
                 "label": "How heavy?",
                 "options": [
@@ -299,7 +299,7 @@ PRODUCT_QUESTIONS = {
                 ],
             },
             {
-                "type": "poll",
+                "type": "checkbox_group",
                 "field": "type",
                 "label": "What type?",
                 "options": [
@@ -312,7 +312,7 @@ PRODUCT_QUESTIONS = {
                 ],
             },
             {
-                "type": "poll",
+                "type": "checkbox_group",
                 "field": "use",
                 "label": "Main use?",
                 "options": [
@@ -348,7 +348,7 @@ PRODUCT_QUESTIONS = {
                 ],
             },
             {
-                "type": "poll",
+                "type": "checkbox_group",
                 "field": "style",
                 "label": "What style?",
                 "options": [
@@ -360,7 +360,7 @@ PRODUCT_QUESTIONS = {
                 ],
             },
             {
-                "type": "poll",
+                "type": "checkbox_group",
                 "field": "material",
                 "label": "Preferred material?",
                 "options": [
@@ -396,7 +396,7 @@ PRODUCT_QUESTIONS = {
                 ],
             },
             {
-                "type": "poll",
+                "type": "checkbox_group",
                 "field": "occasion",
                 "label": "What's it for?",
                 "options": [
@@ -406,7 +406,7 @@ PRODUCT_QUESTIONS = {
                 ],
             },
             {
-                "type": "poll",
+                "type": "checkbox_group",
                 "field": "pattern",
                 "label": "Pattern preference?",
                 "options": [
@@ -442,7 +442,7 @@ PRODUCT_QUESTIONS = {
                 ],
             },
             {
-                "type": "poll",
+                "type": "checkbox_group",
                 "field": "activity",
                 "label": "What activity?",
                 "options": [
@@ -454,7 +454,7 @@ PRODUCT_QUESTIONS = {
                 ],
             },
             {
-                "type": "poll",
+                "type": "checkbox_group",
                 "field": "item",
                 "label": "What item?",
                 "options": [
@@ -491,7 +491,7 @@ PRODUCT_QUESTIONS = {
                 ],
             },
             {
-                "type": "poll",
+                "type": "checkbox_group",
                 "field": "type",
                 "label": "What type?",
                 "options": [
@@ -503,7 +503,7 @@ PRODUCT_QUESTIONS = {
                 ],
             },
             {
-                "type": "poll",
+                "type": "checkbox_group",
                 "field": "fit",
                 "label": "Preferred fit?",
                 "options": [
@@ -541,7 +541,7 @@ DEFAULT_QUESTIONS = {
             ],
         },
         {
-            "type": "poll",
+            "type": "checkbox_group",
             "field": "style",
             "label": "What style?",
             "options": [

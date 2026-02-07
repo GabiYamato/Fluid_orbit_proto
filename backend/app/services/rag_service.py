@@ -178,6 +178,46 @@ Output ONLY the rewritten search query, nothing else."""
             logger.warning(f"Refine query error: {e}")
             return query
 
+    def _construct_broad_query(self, query: str, intent: ParsedIntent) -> str:
+        """
+        Construct a BROAD query for scraping to maximize results.
+        Example: "blue ripped mens jeans size 32" -> "mens jeans"
+        """
+        query_lower = query.lower()
+        parts = []
+        
+        # 1. Detect Gender
+        gender = ""
+        if any(g in query_lower for g in ["men", "mens", "men's", "male", "man"]):
+            gender = "mens"
+        elif any(g in query_lower for g in ["women", "womens", "women's", "female", "woman", "lady"]):
+            gender = "womens"
+        
+        if gender:
+            parts.append(gender)
+        
+        # 2. Extract Category
+        # Use intent category if available, otherwise try to find it in query
+        category = intent.category
+        if not category:
+            # Simple fallback extraction
+            common_cats = ["jeans", "dress", "shoes", "shirt", "jacket", "hoodie", "sweater", "pants", "shorts", "skirt"]
+            for cat in common_cats:
+                if cat in query_lower:
+                    category = cat
+                    break
+        
+        if category:
+            parts.append(category)
+        
+        # If we successfully built a broad query (e.g. "mens jeans")
+        if parts:
+            query = " ".join(parts)
+            return query
+        
+        # Fallback: Return original query if we couldn't make it broader
+        return query
+
     async def search_products(
         self,
         query: str,
@@ -220,30 +260,47 @@ Output ONLY the rewritten search query, nothing else."""
             # STEP 2: Scrape ALL retailers in parallel - get 100+ products
             logger.info("📡 SCRAPING: All 3 levels running in PARALLEL...")
             
-            # Use a simplified/broad query for maximum results
-            scrape_data = await self.scraping_service.search_and_scrape(query, limit=150)
+            # Construct a BROAD query for scraping (Category + Gender only)
+            # This ensures we get maximum results and don't over-filter at the source
+            broad_query = self._construct_broad_query(query, parsed_intent)
+            logger.info(f"   Orchestrating broad scrape with: '{broad_query}' (Original: '{query}')")
+            
+            # Use the simplified/broad query for maximum results
+            scrape_data = await self.scraping_service.search_and_scrape(broad_query, limit=150)
             scraped_products = scrape_data.get("products", [])
             total_scraped = len(scraped_products)
             logger.info(f"   → Scraped {total_scraped} products from retailers")
             
             if scraped_products:
-                # STEP 3: Use KEYWORD-BASED filtering (NO Gemini call)
-                # This keeps Gemini usage minimal
-                logger.info("🔍 Keyword-based filtering (no LLM)...")
-                filtered_products = self._filter_by_keywords(query, scraped_products, parsed_intent)
-                logger.info(f"   → Kept {len(filtered_products)}/{total_scraped} relevant products")
+                # STEP 3a: Basic Keyword Filtering (Category/Gender safety)
+                logger.info("🔍 1. Keyword safety filter...")
+                keyword_filtered = self._filter_by_keywords(query, scraped_products, parsed_intent)
+                logger.info(f"   → Kept {len(keyword_filtered)}/{total_scraped} products")
                 
-                products = filtered_products
+                # STEP 3b: LLM Filtering (The "Brains")
+                # Now that we have a broad set, let the LLM pick the winners matching specific features
+                if len(keyword_filtered) > 0 and (self.gemini_client or self.openai_client):
+                     logger.info("🧠 2. LLM Smart Filtering (Specifics & Style)...")
+                     products = await self._filter_with_llm(query, keyword_filtered, parsed_intent)
+                     logger.info(f"   → LLM selected {len(products)} relevant products")
+                else:
+                     products = keyword_filtered
+                
                 data_source = scrape_data.get("source", "retailers")
                 
                 # STEP 4: Index to Vector DB in BACKGROUND (don't wait)
-                if filtered_products:
-                    asyncio.create_task(self._background_index(filtered_products))
+                if products:
+                    asyncio.create_task(self._background_index(products))
                     logger.info("   → Background indexing started")
             
             # Merge with any vector results we had
             if vector_results:
-                products = products + vector_results
+                # Deduplicate based on URL or title
+                existing_urls = {p.get("affiliate_url") or p.get("id") for p in products}
+                for vp in vector_results:
+                    url = vp.get("affiliate_url") or vp.get("id")
+                    if url not in existing_urls:
+                        products.append(vp)
 
         # Final fallback to Demo data if literally nothing found
         if not products:

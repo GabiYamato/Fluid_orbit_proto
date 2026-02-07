@@ -5,7 +5,7 @@ import logging
 
 from app.config import get_settings
 from app.database import init_db
-from app.routers import auth_router, query_router, history_router, saved_products_router, inventory_router
+from app.routers import auth_router, query_router, history_router, saved_products_router, inventory_router, products_router
 from app.utils.logging_config import setup_logging
 
 settings = get_settings()
@@ -53,7 +53,8 @@ app = FastAPI(
 # CORS middleware - Allow all origins for development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[],  # disallowed when allow_credentials is True
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -66,6 +67,7 @@ app.include_router(query_router)
 app.include_router(history_router)
 app.include_router(saved_products_router)
 app.include_router(inventory_router)
+app.include_router(products_router)
 
 
 @app.get("/")

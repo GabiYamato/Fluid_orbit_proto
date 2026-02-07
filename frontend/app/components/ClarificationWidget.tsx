@@ -26,7 +26,25 @@ interface ClarificationWidgetProps {
     onSkip?: () => void;
 }
 
-// Predefined color palette for fashion
+// Predefined color palette for fashion - maps color names to hex values
+const COLOR_MAP: Record<string, string> = {
+    'black': '#000000',
+    'white': '#FFFFFF',
+    'navy': '#1e3a5f',
+    'gray': '#6b7280',
+    'grey': '#6b7280',
+    'red': '#dc2626',
+    'blue': '#2563eb',
+    'dark_blue': '#1e3a8a',
+    'light_blue': '#60a5fa',
+    'green': '#16a34a',
+    'pink': '#ec4899',
+    'beige': '#d4b896',
+    'brown': '#78350f',
+    'colorful': 'linear-gradient(135deg, #f97316, #ec4899, #8b5cf6, #06b6d4)',
+    'distressed': '#94a3b8',
+};
+
 const COLOR_PALETTE = [
     { name: 'Black', value: '#000000' },
     { name: 'White', value: '#FFFFFF' },
@@ -39,6 +57,14 @@ const COLOR_PALETTE = [
     { name: 'Beige', value: '#d4b896' },
     { name: 'Brown', value: '#78350f' },
 ];
+
+// Helper to check if a widget is color-related
+const isColorWidget = (widget: Widget): boolean => {
+    const colorKeywords = ['color', 'colour', 'wash'];
+    const fieldLower = widget.field.toLowerCase();
+    const labelLower = widget.label.toLowerCase();
+    return colorKeywords.some(kw => fieldLower.includes(kw) || labelLower.includes(kw));
+};
 
 export default function ClarificationWidget({
     message,
@@ -232,7 +258,7 @@ export default function ClarificationWidget({
             <label className="block text-sm font-semibold text-gray-900 dark:text-white">
                 {widget.label}
             </label>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5 items-center">
                 {COLOR_PALETTE.map((color) => (
                     <motion.button
                         key={color.value}
@@ -253,44 +279,215 @@ export default function ClarificationWidget({
                         )}
                     </motion.button>
                 ))}
+                {/* Custom color picker circle */}
+                {customInputs[widget.field] && (
+                    <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className={`w-6 h-6 rounded-full border-2 transition-all shadow-sm ${responses[widget.field] === customInputs[widget.field]
+                            ? 'ring-1 ring-offset-1 ring-black dark:ring-white border-black dark:border-white scale-110'
+                            : 'border-gray-300 dark:border-gray-600'
+                            }`}
+                        style={{ backgroundColor: customInputs[widget.field] }}
+                        onClick={() => handleChange(widget.field, customInputs[widget.field])}
+                        title={`Custom: ${customInputs[widget.field]}`}
+                    />
+                )}
+                {/* Color picker button with rainbow gradient */}
+                <motion.label
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="w-6 h-6 rounded-full border-2 border-gray-300 dark:border-gray-600 transition-all shadow-sm flex items-center justify-center cursor-pointer hover:border-gray-400 overflow-hidden"
+                    title="Pick a custom color"
+                    style={{ background: 'conic-gradient(from 0deg, red, yellow, lime, aqua, blue, magenta, red)' }}
+                >
+                    <input
+                        type="color"
+                        value={customInputs[widget.field] || '#000000'}
+                        onChange={(e) => {
+                            setCustomInputs(prev => ({ ...prev, [widget.field]: e.target.value }));
+                            handleChange(widget.field, e.target.value);
+                        }}
+                        className="opacity-0 absolute w-0 h-0"
+                    />
+                </motion.label>
             </div>
         </div>
     );
 
-    const renderCheckboxWidget = (widget: Widget) => (
-        <div key={widget.field} className="space-y-1.5">
-            <label className="block text-sm font-semibold text-gray-900 dark:text-white">
-                {widget.label}
-            </label>
-            <div className="flex flex-wrap gap-2">
-                {widget.options?.map((option) => {
-                    const selected = (responses[widget.field] || []).includes(option.value);
-                    return (
+    // Render color options as circles (for checkbox_group widgets with color-related fields)
+    const renderColorCircles = (widget: Widget) => {
+        const selectedColors = responses[widget.field] || [];
+
+        return (
+            <div key={widget.field} className="space-y-1.5">
+                <label className="block text-sm font-semibold text-gray-900 dark:text-white">
+                    {widget.label}
+                </label>
+                <div className="flex flex-wrap gap-2 items-center">
+                    {widget.options?.map((option) => {
+                        const colorValue = COLOR_MAP[option.value.toLowerCase()] || '#9ca3af';
+                        const isGradient = colorValue.includes('gradient');
+                        const isSelected = selectedColors.includes(option.value);
+                        const isLightColor = ['white', '#ffffff', '#FFFFFF'].includes(colorValue.toLowerCase());
+
+                        return (
+                            <motion.button
+                                key={option.value}
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => {
+                                    if (isSelected) {
+                                        handleChange(widget.field, selectedColors.filter((v: string) => v !== option.value));
+                                    } else {
+                                        handleChange(widget.field, [...selectedColors, option.value]);
+                                    }
+                                }}
+                                className={`w-7 h-7 rounded-full border-2 transition-all shadow-sm flex items-center justify-center ${isSelected
+                                    ? 'ring-2 ring-offset-1 ring-black dark:ring-white border-black dark:border-white scale-110'
+                                    : 'border-gray-200 dark:border-gray-600 hover:border-gray-400'
+                                    }`}
+                                style={{ background: colorValue }}
+                                title={option.label}
+                            >
+                                {isSelected && (
+                                    <svg className={`w-4 h-4 ${isLightColor ? 'text-black' : 'text-white'}`} fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                    </svg>
+                                )}
+                            </motion.button>
+                        );
+                    })}
+                    {/* Custom color picker circle - shows when a custom color has been picked */}
+                    {customInputs[widget.field] && (
                         <motion.button
-                            key={option.value}
-                            whileHover={{ scale: 1.03 }}
-                            whileTap={{ scale: 0.97 }}
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.95 }}
                             onClick={() => {
                                 const current = responses[widget.field] || [];
-                                if (selected) {
-                                    handleChange(widget.field, current.filter((v: string) => v !== option.value));
+                                if (current.includes(customInputs[widget.field])) {
+                                    handleChange(widget.field, current.filter((v: string) => v !== customInputs[widget.field]));
                                 } else {
-                                    handleChange(widget.field, [...current, option.value]);
+                                    handleChange(widget.field, [...current, customInputs[widget.field]]);
                                 }
                             }}
-                            className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${selected
-                                ? 'bg-black dark:bg-white text-white dark:text-black border-black dark:border-white'
-                                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500'
+                            className={`w-7 h-7 rounded-full border-2 transition-all shadow-sm flex items-center justify-center ${(responses[widget.field] || []).includes(customInputs[widget.field])
+                                ? 'ring-2 ring-offset-1 ring-black dark:ring-white border-black dark:border-white scale-110'
+                                : 'border-gray-300 dark:border-gray-600'
                                 }`}
+                            style={{ backgroundColor: customInputs[widget.field] }}
+                            title={`Custom: ${customInputs[widget.field]}`}
                         >
-                            {selected && <span className="mr-1">✓</span>}
-                            {option.label}
+                            {(responses[widget.field] || []).includes(customInputs[widget.field]) && (
+                                <svg className="w-4 h-4 text-white mix-blend-difference" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                            )}
                         </motion.button>
-                    );
-                })}
+                    )}
+                    {/* Color picker button with rainbow gradient */}
+                    <motion.label
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="w-7 h-7 rounded-full border-2 border-gray-300 dark:border-gray-600 transition-all shadow-sm flex items-center justify-center cursor-pointer hover:border-gray-400 overflow-hidden"
+                        title="Pick a custom color"
+                        style={{ background: 'conic-gradient(from 0deg, red, yellow, lime, aqua, blue, magenta, red)' }}
+                    >
+                        <input
+                            type="color"
+                            value={customInputs[widget.field] || '#000000'}
+                            onChange={(e) => {
+                                const newColor = e.target.value;
+                                setCustomInputs(prev => ({ ...prev, [widget.field]: newColor }));
+                                // Automatically add the custom color to selection
+                                const current = responses[widget.field] || [];
+                                if (!current.includes(newColor)) {
+                                    handleChange(widget.field, [...current, newColor]);
+                                }
+                            }}
+                            className="opacity-0 absolute w-0 h-0"
+                        />
+                    </motion.label>
+                </div>
             </div>
-        </div>
-    );
+        );
+    };
+
+    const renderCheckboxWidget = (widget: Widget) => {
+        // Check if this is a color-related widget
+        if (isColorWidget(widget)) {
+            return renderColorCircles(widget);
+        }
+
+        return (
+            <div key={widget.field} className="space-y-1.5">
+                <label className="block text-sm font-semibold text-gray-900 dark:text-white">
+                    {widget.label}
+                </label>
+                <div className="flex flex-wrap gap-2">
+                    {widget.options?.map((option) => {
+                        const selected = (responses[widget.field] || []).includes(option.value);
+                        return (
+                            <motion.button
+                                key={option.value}
+                                whileHover={{ scale: 1.03 }}
+                                whileTap={{ scale: 0.97 }}
+                                onClick={() => {
+                                    const current = responses[widget.field] || [];
+                                    if (selected) {
+                                        handleChange(widget.field, current.filter((v: string) => v !== option.value));
+                                    } else {
+                                        handleChange(widget.field, [...current, option.value]);
+                                    }
+                                }}
+                                className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${selected
+                                    ? 'bg-black dark:bg-white text-white dark:text-black border-black dark:border-white'
+                                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500'
+                                    }`}
+                            >
+                                {selected && <span className="mr-1">✓</span>}
+                                {option.label}
+                            </motion.button>
+                        );
+                    })}
+                    {/* "Other" option */}
+                    <motion.button
+                        whileHover={{ scale: 1.03 }}
+                        whileTap={{ scale: 0.97 }}
+                        onClick={() => setShowCustomInput(prev => ({ ...prev, [widget.field]: !prev[widget.field] }))}
+                        className={`flex items-center gap-1 px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${showCustomInput[widget.field]
+                            ? 'bg-gray-100 dark:bg-gray-700 border-gray-400 dark:border-gray-500'
+                            : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500'
+                            }`}
+                    >
+                        <span className="text-lg leading-none">+</span>
+                        <span>Other</span>
+                    </motion.button>
+                </div>
+                {/* Custom input field */}
+                <AnimatePresence>
+                    {showCustomInput[widget.field] && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="overflow-hidden pt-1"
+                        >
+                            <input
+                                type="text"
+                                placeholder={`Type ${widget.label.toLowerCase()}...`}
+                                value={customInputs[widget.field] || ''}
+                                onChange={(e) => setCustomInputs(prev => ({ ...prev, [widget.field]: e.target.value }))}
+                                className="w-full px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:border-black dark:focus:border-white transition-colors text-xs"
+                            />
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
+        );
+    };
 
     const renderWidget = (widget: Widget, index: number) => {
         switch (widget.type) {

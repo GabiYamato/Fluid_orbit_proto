@@ -1,0 +1,551 @@
+================================================================================
+                    FLUID ORBIT - PRODUCT REQUIREMENTS DOCUMENT
+================================================================================
+
+Document Version: 1.0
+Last Updated: February 2026
+Status: Active Development (v4.x)
+
+================================================================================
+                            1. PRODUCT OVERVIEW
+================================================================================
+
+1.1 PRODUCT NAME
+    Fluid Orbit (FLU)
+
+1.2 TAGLINE
+    "AI-Powered Product Research — No BS, Just Facts."
+
+1.3 VISION
+    To revolutionize online shopping by providing honest, AI-powered product
+    recommendations that help consumers make smarter purchasing decisions
+    without the noise of biased marketing and endless comparisons.
+
+1.4 PROBLEM STATEMENT
+    Current State:
+    - Consumers spend hours comparing products across multiple websites
+    - Review sites are often biased or paid for positive reviews
+    - Product descriptions are marketing fluff, not useful information
+    - No easy way to aggregate and compare products from multiple retailers
+    
+    Pain Points:
+    - Information overload
+    - Decision fatigue
+    - Lack of trust in recommendations
+    - Time-consuming manual research
+
+1.5 SOLUTION
+    Fluid Orbit provides:
+    - Natural language product search ("I need a warm winter jacket under $150")
+    - Smart clarifying questions to understand user needs
+    - Real-time scraping from 35+ trusted retailers
+    - AI-generated honest summaries (no marketing speak)
+    - Transparent scoring and ranking
+    - One interface, all retailers
+
+================================================================================
+                            2. TARGET AUDIENCE
+================================================================================
+
+2.1 PRIMARY USERS
+    - Fashion-conscious millennials and Gen-Z (18-35)
+    - Budget-conscious shoppers looking for best value
+    - Busy professionals who value time efficiency
+    - Users frustrated with traditional e-commerce browsing
+
+2.2 USER PERSONAS
+
+    PERSONA 1: "The Efficient Shopper"
+    - Age: 28-35
+    - Behavior: Limited time, knows what they want
+    - Need: Quick, accurate recommendations without browsing
+    - Use Case: "Find me the best rated men's running shoes under $120"
+
+    PERSONA 2: "The Fashion Explorer"
+    - Age: 18-25
+    - Behavior: Trend-conscious, open to suggestions
+    - Need: Discovery and inspiration across brands
+    - Use Case: "What's trending in streetwear right now?"
+
+    PERSONA 3: "The Value Seeker"
+    - Age: 25-45
+    - Behavior: Price-sensitive, research-heavy
+    - Need: Compare prices across retailers
+    - Use Case: "Show me deals on leather jackets from multiple stores"
+
+2.3 SECONDARY USERS
+    - Gift shoppers ("Find a gift for my fashion-forward sister")
+    - Parents shopping for children
+    - Occasional shoppers unfamiliar with current trends
+
+================================================================================
+                            3. FUNCTIONAL REQUIREMENTS
+================================================================================
+
+3.1 USER AUTHENTICATION
+
+    F-AUTH-001: Email/Password Registration
+    - User can create account with email and password
+    - Password must meet security requirements (8+ chars, mixed case)
+    - Email verification required for activation
+    
+    F-AUTH-002: Email/Password Login
+    - User can login with registered email and password
+    - Failed attempts are rate-limited (5 attempts per minute)
+    - Password reset via email
+    
+    F-AUTH-003: Google OAuth
+    - User can sign in with Google account
+    - Automatic account creation on first Google login
+    - Profile sync from Google (name, email, avatar)
+    
+    F-AUTH-004: Session Management
+    - JWT-based authentication
+    - Tokens expire after 24 hours
+    - Refresh token mechanism for extended sessions
+
+3.2 PRODUCT SEARCH
+
+    F-SEARCH-001: Natural Language Query
+    - User types product request in conversational form
+    - System understands intent regardless of phrasing
+    - Supports typos and abbreviations
+    
+    F-SEARCH-002: Smart Clarifications
+    - System detects missing product details
+    - Dynamic UI widgets for data collection
+    - Single-prompt clarification (no repeated asking)
+    - Fields: Gender, Size, Style, Price Range, Brand Preference
+    
+    F-SEARCH-003: Multi-Retailer Search
+    - Parallel search across 35+ fashion retailers
+    - Results aggregated and normalized
+    - Retailer source displayed on each product
+    
+    F-SEARCH-004: Vector Search Memory
+    - Previously discovered products indexed for fast retrieval
+    - Semantic similarity matching
+    - Learning system: gets smarter with each query
+    
+    F-SEARCH-005: Query Types Supported
+    - best_product: "Best X under $Y"
+    - deep_dive: "Tell me about [specific product]"
+    - multiple_listing: "Show me all [category]"
+    - spec_lookup: "What's the [feature] of [product]?"
+    - review_based: "Are [products] worth it?"
+
+3.3 PRODUCT DISPLAY
+
+    F-DISPLAY-001: Product Cards
+    - Compact horizontal layout
+    - Image on left, details on right
+    - Title, price, retailer badge
+    - Rating badge (if available)
+    - Truncated description with "Product Details" link
+    
+    F-DISPLAY-002: Product Modal
+    - Full product details on click
+    - Larger image gallery
+    - Complete description
+    - Direct link to retailer
+    - Save to collection option
+    
+    F-DISPLAY-003: Sorting & Pagination
+    - Initial display: 5 products
+    - "Show More" loads additional results
+    - Sorting by: relevance, price (low/high), rating
+
+3.4 AI RESPONSES
+
+    F-AI-001: Streaming Responses
+    - Real-time token-by-token display
+    - Reduced perceived latency
+    - Graceful handling of connection issues
+    
+    F-AI-002: Product Summaries
+    - AI-generated mini summaries
+    - Honest, non-marketing language
+    - Highlights pros/cons when applicable
+    
+    F-AI-003: Recommendation Explanations
+    - Clear reasoning for each recommendation
+    - "Why this product?" context
+    - Comparison to similar options
+
+3.5 USER FEATURES
+
+    F-USER-001: Saved Products
+    - User can save products for later
+    - Saved products persist across sessions
+    - View all saved products in dedicated page
+    - Remove saved products
+    
+    F-USER-002: Chat History
+    - All conversations persisted
+    - Browse past searches
+    - Resume previous conversations
+    - Delete unwanted history
+    
+    F-USER-003: User Settings
+    - Profile management (name, email)
+    - Password change
+    - Preferences (dark mode, notifications)
+    - Account deletion
+
+================================================================================
+                       4. NON-FUNCTIONAL REQUIREMENTS
+================================================================================
+
+4.1 PERFORMANCE
+
+    NF-PERF-001: Response Time
+    - Vector DB queries: < 200ms
+    - Scraping requests: < 5 seconds (parallel)
+    - Page load: < 2 seconds
+    - Search-to-results: < 8 seconds (including scraping)
+    
+    NF-PERF-002: Throughput
+    - Support 100 concurrent users
+    - Handle 1000 queries per hour
+    - Rate limiting: 60 requests per minute per user
+
+4.2 RELIABILITY
+
+    NF-REL-001: Availability
+    - 99.5% uptime target
+    - Graceful degradation when services unavailable
+    - Automatic retry for failed scraping attempts
+    
+    NF-REL-002: Fault Tolerance
+    - Fallback to demo products if all scraping fails
+    - Local LLM fallback if cloud APIs unavailable
+    - Error messages without system crashes
+
+4.3 SCALABILITY
+
+    NF-SCALE-001: Horizontal Scaling
+    - Stateless backend design
+    - Database can be migrated to PostgreSQL
+    - Vector DB supports distributed deployment
+    
+    NF-SCALE-002: Data Growth
+    - Product index: support 1M+ products
+    - User base: support 10K+ users
+    - Chat history: efficient pruning strategy
+
+4.4 SECURITY
+
+    NF-SEC-001: Authentication
+    - Bcrypt password hashing
+    - JWT with secure signing
+    - OAuth 2.0 for third-party auth
+    
+    NF-SEC-002: Data Protection
+    - HTTPS only
+    - Input sanitization
+    - SQL injection prevention
+    - XSS protection
+    
+    NF-SEC-003: Privacy
+    - User data isolation
+    - No cross-user data leakage
+    - GDPR-compliant data handling
+
+4.5 USABILITY
+
+    NF-USE-001: Accessibility
+    - Keyboard navigation support
+    - Screen reader compatible
+    - Color contrast compliance
+    
+    NF-USE-002: Responsive Design
+    - Mobile-first approach
+    - Supports 320px to 4K screens
+    - Touch-friendly interactions
+
+================================================================================
+                            5. TECHNICAL SPECIFICATIONS
+================================================================================
+
+5.1 FRONTEND STACK
+    - Framework: Next.js 14 (App Router)
+    - Language: TypeScript (strict mode)
+    - Styling: TailwindCSS
+    - State: React Context + Local State
+    - HTTP: Fetch API
+    - Design System: Neobrutalism
+
+5.2 BACKEND STACK
+    - Framework: FastAPI (Python 3.11+)
+    - Database: SQLite (dev) / PostgreSQL (prod)
+    - Vector DB: Qdrant
+    - Cache: Redis
+    - Auth: JWT + OAuth 2.0
+
+5.3 AI/ML STACK
+    - Embeddings: sentence-transformers (all-MiniLM-L6-v2)
+    - Local LLM: Ollama (llama3.2:3b)
+    - Cloud LLM: Gemini (primary) / OpenAI (secondary)
+
+5.4 INFRASTRUCTURE
+    - Containerization: Docker + docker-compose
+    - Development: Local servers
+    - Production: Cloud deployment (TBD)
+
+================================================================================
+                            6. DATA REQUIREMENTS
+================================================================================
+
+6.1 PRODUCT DATA MODEL
+
+    Product {
+        id: UUID (primary key)
+        title: String (required)
+        price: Decimal (required, > 0)
+        description: String (optional)
+        url: URL (required, must be valid)
+        image_url: URL (optional)
+        retailer: String (required)
+        brand: String (optional)
+        category: String (optional)
+        rating: Decimal (optional, 0-5)
+        embedding: Vector[384] (required for search)
+        created_at: DateTime
+        updated_at: DateTime
+    }
+
+6.2 USER DATA MODEL
+
+    User {
+        id: UUID (primary key)
+        email: Email (unique, required)
+        hashed_password: String (required for email auth)
+        full_name: String (optional)
+        avatar_url: URL (optional)
+        auth_provider: Enum (email, google)
+        is_verified: Boolean
+        created_at: DateTime
+        last_login: DateTime
+    }
+
+6.3 CONVERSATION DATA MODEL
+
+    ChatSession {
+        id: UUID (primary key)
+        user_id: UUID (foreign key)
+        title: String (auto-generated from first query)
+        created_at: DateTime
+        updated_at: DateTime
+    }
+
+    QueryHistory {
+        id: UUID (primary key)
+        session_id: UUID (foreign key)
+        query: String
+        response: String
+        products_json: JSON
+        created_at: DateTime
+    }
+
+================================================================================
+                        7. SUPPORTED RETAILERS
+================================================================================
+
+7.1 FASHION RETAILERS (35+)
+
+    FAST FASHION:
+    - H&M
+    - Zara
+    - Forever 21
+    - Shein
+    - Boohoo
+    - Fashion Nova
+    
+    MAINSTREAM:
+    - Gap
+    - Old Navy
+    - Banana Republic
+    - J.Crew
+    - Express
+    
+    DEPARTMENT STORES:
+    - Macy's
+    - Nordstrom
+    - Bloomingdale's
+    - Saks Fifth Avenue
+    
+    ATHLETIC:
+    - Nike
+    - Adidas
+    - Under Armour
+    - Puma
+    - Lululemon
+    
+    ONLINE-FIRST:
+    - ASOS
+    - Urban Outfitters
+    - Anthropologie
+    
+    DENIM:
+    - Levi's
+    - American Eagle
+    
+    YOUTH:
+    - Abercrombie & Fitch
+    - Hollister
+
+================================================================================
+                            8. USER FLOWS
+================================================================================
+
+8.1 FIRST-TIME USER FLOW
+    1. User lands on home page
+    2. User clicks "Get Started"
+    3. User signs up (email or Google)
+    4. User enters first search query
+    5. System asks clarifying questions
+    6. User provides filters
+    7. System displays results
+    8. User saves a product or clicks through
+
+8.2 RETURNING USER FLOW
+    1. User logs in
+    2. User sees previous conversations in sidebar
+    3. User resumes old conversation OR starts new
+    4. System remembers preferences
+    5. Results displayed faster (cached products)
+
+8.3 PRODUCT DISCOVERY FLOW
+    1. User enters natural language query
+    2. System parses intent
+    3. IF missing info: clarification widgets shown
+    4. User completes clarification
+    5. System searches (Vector DB → Scrapers → Web)
+    6. Products ranked and displayed
+    7. AI summary generated
+    8. User interacts with results
+
+================================================================================
+                        9. DESIGN SPECIFICATIONS
+================================================================================
+
+9.1 DESIGN LANGUAGE
+    Style: Neobrutalism
+    
+    Characteristics:
+    - Heavy black borders (2px solid black)
+    - Hard drop shadows (4px offset, solid black)
+    - Bold, chunky typography
+    - High contrast colors
+    - Flat design with accent depth
+    
+9.2 COLOR PALETTE
+    
+    Primary:
+    - Background: #FFFFFF (light) / #1A1A1A (dark)
+    - Text: #000000 (light) / #FFFFFF (dark)
+    - Accent: #E31B5B (pink)
+    
+    Semantic:
+    - Success: #22C55E
+    - Warning: #F59E0B
+    - Error: #EF4444
+    - Info: #3B82F6
+    
+9.3 TYPOGRAPHY
+    
+    Primary Font: Inter (or system-ui fallback)
+    
+    Hierarchy:
+    - H1: 3rem / 48px, bold
+    - H2: 2rem / 32px, bold
+    - H3: 1.5rem / 24px, semi-bold
+    - Body: 1rem / 16px, regular
+    - Small: 0.875rem / 14px, regular
+
+9.4 SPACING
+    - Base unit: 4px
+    - Scale: 4, 8, 12, 16, 24, 32, 48, 64, 96
+
+================================================================================
+                        10. SUCCESS METRICS
+================================================================================
+
+10.1 ENGAGEMENT METRICS
+    - Daily Active Users (DAU)
+    - Sessions per user per week
+    - Queries per session
+    - Products saved per user
+
+10.2 CONVERSION METRICS
+    - Click-through rate to retailer
+    - Products saved vs viewed
+    - Return user rate
+
+10.3 QUALITY METRICS
+    - Search result relevancy (user feedback)
+    - Average time to first result
+    - Scraping success rate by retailer
+
+10.4 TECHNICAL METRICS
+    - API response times (p50, p95, p99)
+    - Error rates
+    - System uptime
+
+================================================================================
+                        11. FUTURE ROADMAP
+================================================================================
+
+PHASE 1 (Current): MVP
+    ✅ Core search functionality
+    ✅ Multi-retailer scraping
+    ✅ User authentication
+    ✅ Chat history
+    ✅ Saved products
+
+PHASE 2: Enhanced Discovery
+    - Price alerts
+    - Personalized recommendations
+    - Weekly digest emails
+    - Wishlist sharing
+
+PHASE 3: Social Features
+    - User reviews
+    - Style boards
+    - Friend recommendations
+    - Community trends
+
+PHASE 4: Monetization
+    - Affiliate integration
+    - Premium features
+    - Brand partnerships
+
+================================================================================
+                        12. ACCEPTANCE CRITERIA
+================================================================================
+
+Feature is considered complete when:
+
+1. CODE COMPLETE
+   - Functionality implemented
+   - Error handling in place
+   - Loading states work
+
+2. TESTED
+   - Manual testing passed
+   - Edge cases covered
+   - Cross-browser verified
+
+3. REVIEWED
+   - Code review completed
+   - Design matches specifications
+   - No accessibility regressions
+
+4. DOCUMENTED
+   - README updated if needed
+   - Inline comments for complex logic
+   - API documented
+
+================================================================================
+                            END OF PRD
+================================================================================
